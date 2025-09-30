@@ -29,6 +29,9 @@ log = "0.4"
 # Path manipulation
 path-slash = "0.2"
 
+# Date/time for wrapper generation timestamps
+chrono = "0.4"
+
 # For WSL bridge (Phase 2)
 # windows = { version = "0.58", features = ["Win32_Foundation", "Win32_System_Console"] }
 

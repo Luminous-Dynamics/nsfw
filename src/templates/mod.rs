@@ -1,1 +1,5 @@
-// Wrapper script templates - Phase 1 Week 2
+pub mod generator;
+pub mod templates;
+
+pub use generator::{WrapperGenerator, WrapperType, PackageInfo};
+pub use templates::WrapperTemplate;

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use crate::nix_ops::{NixExecutor, NixError};
+use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
 
 pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     println!("🔍 Searching for '{}'...", query);
@@ -205,8 +207,39 @@ pub fn update() -> Result<()> {
 }
 
 pub fn generate_wrapper(package: &str, package_path: &str) -> Result<()> {
-    println!("🔧 Generating wrapper for '{}'", package);
-    println!("   Package path: {}", package_path);
-    println!("⚠️  Wrapper generation not yet implemented (Phase 1 Week 2)");
+    println!("🔧 Generating wrapper for '{}'...", package);
+
+    // Determine output directory (current directory by default)
+    let output_dir = PathBuf::from(".");
+    let generator = WrapperGenerator::new(output_dir);
+
+    // Validate the Nix store path
+    println!("   Validating Nix store path...");
+    generator.validate_store_path(package_path)?;
+
+    // Detect wrapper type based on package name
+    let wrapper_type = generator.detect_wrapper_type(package);
+    let wrapper_type_str = match wrapper_type {
+        WrapperType::Console => "Console",
+        WrapperType::Gui => "GUI",
+        WrapperType::Vbs => "VBS (Silent)",
+    };
+    println!("   Detected type: {}", wrapper_type_str);
+
+    // Create package info
+    let package_info = PackageInfo::new(
+        package.to_string(),
+        package_path.to_string(),
+        wrapper_type,
+    );
+
+    // Generate the wrapper
+    println!("   Generating wrapper script...");
+    let wrapper_path = generator.generate(&package_info)?;
+
+    println!("✅ Wrapper generated successfully!");
+    println!("   Location: {}", wrapper_path.display());
+    println!("   You can now run: {}", wrapper_path.display());
+
     Ok(())
 }
