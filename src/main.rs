@@ -5,7 +5,7 @@ mod cli;
 mod nix_ops;
 mod path_translation;
 mod templates;
-mod wsl_bridge;
+mod wsl2;
 
 #[derive(Parser)]
 #[command(name = "nsfw")]
