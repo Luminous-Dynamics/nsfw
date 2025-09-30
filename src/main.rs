@@ -1,11 +1,8 @@
 use clap::{Parser, Subcommand};
 use log::{info, error};
 
-mod cli;
-mod nix_ops;
-mod path_translation;
-mod templates;
-mod wsl2;
+// Use the library modules
+use nsfw::cli;
 
 #[derive(Parser)]
 #[command(name = "nsfw")]
