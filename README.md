@@ -291,25 +291,37 @@ This is usually due to Nix updating its database. The first operation after a ch
 
 ## Roadmap
 
-### Phase 1: Foundation ✅ (Complete)
-- CLI interface
-- WSL2 bridge
-- Path translation
-- Basic Nix operations
-- Comprehensive testing
+### Phase 1: Foundation ✅ (Complete - Days 1-14)
+- ✅ CLI interface with all core commands
+- ✅ WSL2 bridge architecture (trait-based)
+- ✅ Path translation (67 tests)
+- ✅ Complete Nix operations
+- ✅ 124 comprehensive tests (100% passing)
+- ✅ Full documentation
 
-### Phase 2: Polish (In Progress)
-- Windows testing
-- Performance optimization
-- Enhanced error messages
-- Configuration support
+**Achievement**: Solid, well-tested foundation ready for real-world validation
 
-### Phase 3: Advanced Features (Planned)
+### Phase 2: Windows Testing & Polish 🔄 (In Progress - Days 15-21)
+- ✅ VM testing infrastructure (Day 15)
+- 🔄 Windows 11 + WSL2 + Nix testing
+- 🔄 Performance benchmarking and optimization
+- 🔄 Bug fixes from real-world usage
+- 🔄 Enhanced error messages
+- 🔄 Configuration support
+- 🔄 v0.2.0-rc release
+
+**Goal**: Production-ready binary validated on actual Windows environment
+
+See [vm-testing/README.md](vm-testing/README.md) for testing infrastructure details.
+
+### Phase 3: Advanced Features 📋 (Planned - Weeks 4+)
 - Package dependency visualization
 - Search result caching
 - Interactive package selection
-- Shell completions
+- Shell completions (PowerShell, Bash)
 - Auto-update notifications
+- Configuration profiles
+- Progress indicators
 
 ## FAQ
 
@@ -347,10 +359,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Project Status
 
-- **Current Phase**: 1 (Complete)
+- **Current Phase**: 2 - Windows Testing & Polish (Day 15/21)
+- **Phase 1**: ✅ Complete (124 tests passing)
 - **Stability**: Alpha
-- **Production Ready**: Not yet (pending Phase 2 Windows testing)
+- **Production Ready**: Not yet (Phase 2 testing in progress)
 - **Active Development**: Yes
+- **Next Milestone**: v0.2.0-rc after Phase 2 completion
+
+### Recent Updates
+- **2025-09-30**: Phase 2 started - VM testing infrastructure complete
+- **2025-09-30**: Phase 1 complete - All 124 tests passing
+- **2025-09-27**: Integration tests added (13 tests)
+- **2025-09-27**: Edge case tests added (16 tests)
 
 ---
 
