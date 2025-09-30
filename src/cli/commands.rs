@@ -2,13 +2,16 @@ use anyhow::Result;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use crate::nix_ops::{NixExecutor, NixError};
+use crate::nix_ops::{NixExecutor, BridgedNixExecutor, NixError};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
+use crate::wsl2::RealWSL2Bridge;
 
 pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     println!("🔍 Searching for '{}'...", query);
 
-    let executor = NixExecutor::new();
+    // Create bridged executor that uses WSL2
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
     match executor.check_nix_available() {
@@ -64,7 +67,9 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
 pub fn install(package: &str, yes: bool) -> Result<()> {
     println!("📦 Installing '{}'...", package);
 
-    let executor = NixExecutor::new();
+    // Create bridged executor that uses WSL2
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
     if let Err(e) = executor.check_nix_available() {
@@ -106,7 +111,9 @@ pub fn install(package: &str, yes: bool) -> Result<()> {
 pub fn remove(package: &str, yes: bool) -> Result<()> {
     println!("🗑️  Removing '{}'...", package);
 
-    let executor = NixExecutor::new();
+    // Create bridged executor that uses WSL2
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
     if let Err(e) = executor.check_nix_available() {
@@ -148,7 +155,9 @@ pub fn remove(package: &str, yes: bool) -> Result<()> {
 pub fn list(detailed: bool, format: &str) -> Result<()> {
     println!("📋 Listing installed packages...");
 
-    let executor = NixExecutor::new();
+    // Create bridged executor that uses WSL2
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
     if let Err(e) = executor.check_nix_available() {
