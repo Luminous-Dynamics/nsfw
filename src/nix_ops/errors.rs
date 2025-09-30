@@ -28,6 +28,9 @@ pub enum NixError {
 
     #[error("Nix not found. Please install Nix: https://nixos.org/download.html")]
     NixNotInstalled,
+
+    #[error("WSL2 is not available. Please install WSL2: https://docs.microsoft.com/en-us/windows/wsl/install")]
+    WSL2NotAvailable,
 }
 
 pub type Result<T> = std::result::Result<T, NixError>;
