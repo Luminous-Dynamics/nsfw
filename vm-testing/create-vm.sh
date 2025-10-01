@@ -8,7 +8,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISO_DIR="$SCRIPT_DIR/iso"
-ISO_FILE="$ISO_DIR/Win11_EnglishInternational_x64.iso"
+ISO_FILE="$ISO_DIR/Win11_25H2_English_x64.iso"
 
 # VM Configuration
 VM_NAME="nsfw-test-win11"
@@ -48,19 +48,19 @@ echo "✅ libvirtd is running"
 echo ""
 
 # Check if VM already exists
-if virsh dominfo "$VM_NAME" &> /dev/null; then
+if sudo virsh -c qemu:///system dominfo "$VM_NAME" &> /dev/null; then
     echo "⚠️  VM '$VM_NAME' already exists!"
     echo ""
     read -p "Delete existing VM and recreate? [y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "Deleting existing VM..."
-        virsh destroy "$VM_NAME" 2>/dev/null || true
-        virsh undefine "$VM_NAME" 2>/dev/null || true
+        sudo virsh -c qemu:///system destroy "$VM_NAME" 2>/dev/null || true
+        sudo virsh -c qemu:///system undefine "$VM_NAME" 2>/dev/null || true
         rm -f "$VM_DISK"
         echo "✅ Deleted existing VM"
     else
-        echo "Aborting. Use 'virsh start $VM_NAME' to start existing VM."
+        echo "Aborting. Use 'sudo virsh -c qemu:///system start $VM_NAME' to start existing VM."
         exit 0
     fi
 fi
@@ -84,14 +84,15 @@ echo ""
 
 # Create VM
 echo "🚀 Creating VM..."
-virt-install \
+sudo virt-install \
+    --connect qemu:///system \
     --name "$VM_NAME" \
     --ram "$VM_RAM" \
     --vcpus "$VM_CPUS" \
-    --disk path="$VM_DISK",format=qcow2,bus=virtio \
+    --disk path="$VM_DISK",format=qcow2,bus=sata \
     --cdrom "$ISO_FILE" \
     --os-variant win11 \
-    --network network=default,model=virtio \
+    --network network=default,model=e1000e \
     --graphics vnc,listen=0.0.0.0,port=5900 \
     --video vga \
     --boot uefi \

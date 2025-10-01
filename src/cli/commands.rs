@@ -1,40 +1,62 @@
 use anyhow::Result;
-use std::io::{self, Write};
 use std::path::PathBuf;
 
-use crate::nix_ops::{NixExecutor, BridgedNixExecutor, NixError};
+use crate::nix_ops::{BridgedNixExecutor, NixError};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
 use crate::wsl2::RealWSL2Bridge;
+use crate::cache::SearchCache;
+use crate::ui::{ProgressIndicator, OutputFormatter, MessageType};
 
 pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
-    println!("🔍 Searching for '{}'...", query);
+    // Show search header
+    eprintln!("{}", OutputFormatter::format_section(&format!("Searching for '{}'", query)));
+
+    // Check cache first
+    if let Some(cached_results) = SearchCache::get(query, limit) {
+        log::debug!("Using cached results for '{}'", query);
+
+        if format == "json" {
+            let json = serde_json::to_string_pretty(&cached_results)?;
+            println!("{}", json);
+        } else {
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Using cached results"));
+            print!("{}", OutputFormatter::format_search_results(&cached_results, true));
+        }
+
+        return Ok(());
+    }
+
+    // Create progress spinner
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
 
     // Create bridged executor that uses WSL2
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
     match executor.check_nix_available() {
         Ok(version) => {
             if log::log_enabled!(log::Level::Debug) {
-                println!("   Using: {}", version);
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("Using: {}", version)));
             }
         }
         Err(e) => {
-            eprintln!("❌ Error: {}", e);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
             return Err(e.into());
         }
     }
 
     // Perform search
+    progress.set_message(&format!("Searching nixpkgs for '{}'...", query));
     match executor.search(query, limit) {
         Ok(results) => {
-            if results.is_empty() {
-                println!("   No results found for '{}'", query);
-                return Ok(());
-            }
+            progress.finish_and_clear();
 
-            println!("   Found {} result(s):\n", results.len());
+            // Cache the results
+            SearchCache::put(query, limit, results.clone());
 
             // Output results based on format
             match format {
@@ -43,14 +65,11 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
                     println!("{}", json);
                 }
                 _ => {
-                    // Text format (default)
-                    for (i, result) in results.iter().enumerate() {
-                        println!("{}. {}", i + 1, result.pname);
-                        println!("   Version: {}", result.version);
-                        if !result.description.is_empty() {
-                            println!("   Description: {}", result.description);
-                        }
-                        println!();
+                    if results.is_empty() {
+                        eprintln!("{}", OutputFormatter::format_message(MessageType::Warning, &format!("No results found for '{}'", query)));
+                    } else {
+                        eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("Found {} result(s)", results.len())));
+                        print!("{}", OutputFormatter::format_search_results(&results, true));
                     }
                 }
             }
@@ -58,122 +77,144 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            eprintln!("❌ Search failed: {}", e);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &format!("Search failed: {}", e)));
             Err(e.into())
         }
     }
 }
 
 pub fn install(package: &str, yes: bool) -> Result<()> {
-    println!("📦 Installing '{}'...", package);
+    eprintln!("{}", OutputFormatter::format_section(&format!("Installing '{}'", package)));
 
     // Create bridged executor that uses WSL2
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
-        eprintln!("❌ Error: {}", e);
+        progress.finish_and_clear();
+        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
         return Err(e.into());
     }
+    progress.finish_and_clear();
 
     // Confirm unless --yes flag
     if !yes {
-        print!("   Proceed with installation? [y/N]: ");
-        io::stdout().flush()?;
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Proceed with installation of '{}'?", package))
+            .default(false)
+            .interact()?;
 
-        let mut response = String::new();
-        io::stdin().read_line(&mut response)?;
-
-        if !response.trim().eq_ignore_ascii_case("y") {
-            println!("   Installation cancelled");
+        if !confirmed {
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Installation cancelled"));
             return Ok(());
         }
     }
 
-    // Perform installation
+    // Perform installation with progress indicator
+    let progress = ProgressIndicator::spinner(&format!("Installing '{}'...", package));
     match executor.install(package) {
         Ok(()) => {
-            println!("✅ Successfully installed '{}'", package);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("Successfully installed '{}'", package)));
             Ok(())
         }
         Err(NixError::AlreadyInstalled(_)) => {
-            println!("ℹ️  Package '{}' is already installed", package);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("Package '{}' is already installed", package)));
             Ok(())
         }
         Err(e) => {
-            eprintln!("❌ Installation failed: {}", e);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                &format!("Installation failed: {}", e),
+                "Try updating your Nix channels with 'nsfw update' or check package name"
+            ));
             Err(e.into())
         }
     }
 }
 
 pub fn remove(package: &str, yes: bool) -> Result<()> {
-    println!("🗑️  Removing '{}'...", package);
+    eprintln!("{}", OutputFormatter::format_section(&format!("Removing '{}'", package)));
 
     // Create bridged executor that uses WSL2
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
-        eprintln!("❌ Error: {}", e);
+        progress.finish_and_clear();
+        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
         return Err(e.into());
     }
+    progress.finish_and_clear();
 
     // Confirm unless --yes flag
     if !yes {
-        print!("   Proceed with removal? [y/N]: ");
-        io::stdout().flush()?;
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Proceed with removal of '{}'?", package))
+            .default(false)
+            .interact()?;
 
-        let mut response = String::new();
-        io::stdin().read_line(&mut response)?;
-
-        if !response.trim().eq_ignore_ascii_case("y") {
-            println!("   Removal cancelled");
+        if !confirmed {
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Removal cancelled"));
             return Ok(());
         }
     }
 
-    // Perform removal
+    // Perform removal with progress indicator
+    let progress = ProgressIndicator::spinner(&format!("Removing '{}'...", package));
     match executor.remove(package) {
         Ok(()) => {
-            println!("✅ Successfully removed '{}'", package);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("Successfully removed '{}'", package)));
             Ok(())
         }
         Err(NixError::NotInstalled(_)) => {
-            println!("ℹ️  Package '{}' is not installed", package);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Warning, &format!("Package '{}' is not installed", package)));
             Ok(())
         }
         Err(e) => {
-            eprintln!("❌ Removal failed: {}", e);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                &format!("Removal failed: {}", e),
+                "Check if the package name is correct with 'nsfw list'"
+            ));
             Err(e.into())
         }
     }
 }
 
 pub fn list(detailed: bool, format: &str) -> Result<()> {
-    println!("📋 Listing installed packages...");
+    eprintln!("{}", OutputFormatter::format_section("Installed Packages"));
 
     // Create bridged executor that uses WSL2
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
 
     // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
-        eprintln!("❌ Error: {}", e);
+        progress.finish_and_clear();
+        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
         return Err(e.into());
     }
 
     // Get list of installed packages
+    progress.set_message("Retrieving package list...");
     match executor.list() {
         Ok(packages) => {
-            if packages.is_empty() {
-                println!("   No packages installed");
-                return Ok(());
-            }
-
-            println!("   {} package(s) installed:\n", packages.len());
+            progress.finish_and_clear();
 
             // Output based on format
             match format {
@@ -182,14 +223,11 @@ pub fn list(detailed: bool, format: &str) -> Result<()> {
                     println!("{}", json);
                 }
                 _ => {
-                    // Text format (default)
-                    for (i, pkg) in packages.iter().enumerate() {
-                        println!("{}. {}", i + 1, pkg.name);
-                        if detailed {
-                            println!("   Version: {}", pkg.version);
-                            println!("   Store path: {}", pkg.store_path);
-                        }
-                        println!();
+                    if packages.is_empty() {
+                        eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "No packages installed"));
+                    } else {
+                        eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("{} package(s) installed", packages.len())));
+                        print!("{}", OutputFormatter::format_installed_packages(&packages, detailed));
                     }
                 }
             }
@@ -197,7 +235,11 @@ pub fn list(detailed: bool, format: &str) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            eprintln!("❌ Failed to list packages: {}", e);
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                &format!("Failed to list packages: {}", e),
+                "Ensure Nix profile is initialized"
+            ));
             Err(e.into())
         }
     }

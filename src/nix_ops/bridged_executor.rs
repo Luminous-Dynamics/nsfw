@@ -2,12 +2,12 @@
 ///
 /// This executor routes all Nix commands through a WSL2Bridge implementation,
 /// enabling Windows CLI to execute Nix operations in WSL2.
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use serde_json::Value;
 
 use super::errors::NixError;
 use super::types::{SearchResult, InstalledPackage};
-use crate::wsl2::{WSL2Bridge, CommandOutput};
+use crate::wsl2::WSL2Bridge;
 
 /// Nix executor that uses WSL2Bridge for all operations
 ///

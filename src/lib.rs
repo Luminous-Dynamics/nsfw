@@ -11,5 +11,9 @@ pub mod path_translation;
 pub mod templates;
 pub mod wsl2;
 
+// Performance and UX modules (Phase 2+)
+pub mod cache;
+pub mod ui;
+
 // Re-export CLI module for internal use
 pub mod cli;
