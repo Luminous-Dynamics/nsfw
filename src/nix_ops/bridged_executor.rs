@@ -34,6 +34,16 @@ impl<B: WSL2Bridge> BridgedNixExecutor<B> {
         Self { bridge }
     }
 
+    /// Check if the Nix evaluation cache exists
+    pub fn is_cache_built(&self) -> bool {
+        // Check if the eval cache directory exists in WSL2
+        let check_cmd = "test -d ~/.cache/nix/eval-cache-v5 && echo 'exists' || echo 'missing'";
+        match self.bridge.execute("sh", &["-c", check_cmd]) {
+            Ok(output) if output.stdout.trim() == "exists" => true,
+            _ => false,
+        }
+    }
+
     /// Check if Nix is available in WSL2
     pub fn check_nix_available(&self) -> Result<String, NixError> {
         // First check if WSL2 is available

@@ -35,14 +35,26 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
 
     // Check if Nix is available
     progress.set_message("Checking Nix availability...");
+    let is_first_time = !executor.is_cache_built();
+
     match executor.check_nix_available() {
         Ok(version) => {
             progress.finish_and_clear();
             if log::log_enabled!(log::Level::Debug) {
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("Using: {}", version)));
             }
-            // Inform user about first-time delay
-            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Note: First search downloads package database (2-5 min), then instant!"));
+
+            // Inform user about first-time delay only if cache doesn't exist
+            if is_first_time {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Warning,
+                    "⏳ First-time setup: Downloading package database (200-500MB, 2-10 min)"
+                ));
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Info,
+                    "   This is a ONE-TIME operation. All future searches will be instant!"
+                ));
+            }
         }
         Err(e) => {
             progress.finish_and_clear();
@@ -51,8 +63,13 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
         }
     }
 
-    // Perform search
-    progress.set_message(&format!("Searching nixpkgs for '{}'... (first search may take 2-5 minutes)", query));
+    // Perform search with appropriate message
+    let search_msg = if is_first_time {
+        format!("Downloading database and searching for '{}'... (please wait 2-10 min)", query)
+    } else {
+        format!("Searching nixpkgs for '{}'...", query)
+    };
+    progress.set_message(&search_msg);
     match executor.search(query, limit) {
         Ok(results) => {
             progress.finish_and_clear();

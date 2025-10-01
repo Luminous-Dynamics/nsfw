@@ -20,6 +20,17 @@ impl NixExecutor {
         }
     }
 
+    /// Check if the Nix flakes cache exists (indicates first-time setup is done)
+    pub fn is_cache_built(&self) -> bool {
+        // Check for common cache locations
+        let cache_paths = [
+            std::path::Path::new("/home").join(std::env::var("USER").unwrap_or_default()).join(".cache/nix/eval-cache-v5"),
+            std::path::PathBuf::from("/root/.cache/nix/eval-cache-v5"),
+        ];
+
+        cache_paths.iter().any(|path| path.exists())
+    }
+
     /// Check if Nix is installed and accessible
     pub fn check_nix_available(&self) -> Result<String> {
         debug!("Checking if Nix is available...");
