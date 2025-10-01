@@ -83,13 +83,25 @@ nix-channel --update
 echo "✅ Channels updated"
 echo ""
 
-# Test Nix
-echo "📋 Testing Nix search..."
-if timeout 30 nix --extra-experimental-features "nix-command flakes" search nixpkgs hello --json > /dev/null 2>&1; then
-    echo "✅ Nix search is working!"
+# Note about first search
+echo "📋 About the first search:"
+echo "   The first time you search, Nix downloads a package database (200-500MB)."
+echo "   This is a ONE-TIME operation that takes 2-10 minutes."
+echo "   After this, ALL searches will be instant (< 1 second) forever!"
+echo ""
+echo "   You can pre-download it now or let it happen on first search."
+echo ""
+read -p "   Pre-download database now? (y/N): " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "   Starting download... (this may take 2-10 minutes)"
+    if nix --extra-experimental-features "nix-command flakes" search nixpkgs hello --json > /dev/null 2>&1; then
+        echo "✅ Database downloaded! Searches will now be instant."
+    else
+        echo "⚠️  Download had issues, but will work on first NSFW search."
+    fi
 else
-    echo "⚠️  Nix search test failed or timed out"
-    echo "   This might be normal on first run - try running NSFW to test"
+    echo "   Skipped - database will download on your first NSFW search."
 fi
 echo ""
 
