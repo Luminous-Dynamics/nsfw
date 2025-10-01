@@ -37,10 +37,12 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     progress.set_message("Checking Nix availability...");
     match executor.check_nix_available() {
         Ok(version) => {
+            progress.finish_and_clear();
             if log::log_enabled!(log::Level::Debug) {
-                progress.finish_and_clear();
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("Using: {}", version)));
             }
+            // Inform user about first-time delay
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Note: First search downloads package database (2-5 min), then instant!"));
         }
         Err(e) => {
             progress.finish_and_clear();
@@ -50,7 +52,7 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     }
 
     // Perform search
-    progress.set_message(&format!("Searching nixpkgs for '{}'...", query));
+    progress.set_message(&format!("Searching nixpkgs for '{}'... (first search may take 2-5 minutes)", query));
     match executor.search(query, limit) {
         Ok(results) => {
             progress.finish_and_clear();
