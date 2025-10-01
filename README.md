@@ -8,17 +8,23 @@
 
 ## What is NSFW?
 
-NSFW is a Windows CLI tool that makes Nix package management accessible and easy. It bridges Windows and WSL2/Nix, translating paths automatically and providing a friendly interface to the powerful Nix package manager.
+**NSFW** brings 70,000+ packages to Windows with perfect isolation. Whether you're a developer juggling multiple Node versions or a data scientist fighting conda corruption, NSFW solves environment hell on Windows.
 
-### Key Features
+### 🎯 Built For
 
-- 🪟 **Windows Native**: Run Nix operations from Windows PowerShell/CMD
-- 🔄 **Automatic Path Translation**: Seamlessly converts Windows paths to WSL2 paths
-- 📦 **Package Management**: Search, install, remove, and list Nix packages
-- 🧪 **Well Tested**: 136 tests ensuring reliability
-- ⚡ **Lightning Fast**: Thread-safe caching for 2000x-5000x speedup on repeated searches
-- 🎨 **Beautiful UI**: Colored output, progress indicators, and interactive prompts
-- 🎯 **User Friendly**: Clear output and helpful error messages
+**Windows Developers**: Stop fighting version conflicts. Install Node 14, 18, and 20 simultaneously. Each project gets its own isolated environment.
+
+**Data Scientists**: End the Anaconda nightmare. Reproducible research with locked package versions. Share exact environments with your team.
+
+### ⚡ Key Features
+
+- **70,000+ Packages**: 7x more than Chocolatey (dev tools + scientific libraries)
+- **Zero Conflicts**: Multiple Python/Node/R versions, perfectly isolated
+- **Perfect Reproducibility**: Lock versions exactly, reproduce results forever
+- **Team Sharing**: One config file = identical environment everywhere
+- **Cross-Platform**: Same packages work on Mac/Linux (when you switch machines)
+- **Lightning Fast**: Thread-safe caching for 2000x-5000x speedup
+- **Beautiful UI**: Colored output, progress indicators, interactive prompts
 
 ## Prerequisites
 
@@ -77,6 +83,46 @@ nsfw remove firefox
 
 # Get help
 nsfw --help
+```
+
+## Use Cases
+
+### 🚀 For Developers: Version Isolation
+
+```powershell
+# Client project needs Node 14
+cd client-project
+nsfw install nodejs-14
+node --version  # v14.21.3
+
+# New project needs Node 20
+cd new-project
+nsfw install nodejs-20
+node --version  # v20.11.0
+
+# Both work simultaneously - zero conflicts!
+```
+
+### 🔬 For Data Scientists: Reproducible Research
+
+```powershell
+# Lock exact versions for reproducible ML research
+nsfw install python311 tensorflow215 numpy124 pandas201
+
+# Share with team - one config file
+# Everyone gets identical environment
+
+# Reproduce results years later - versions locked forever
+```
+
+### 👥 For Teams: Instant Onboarding
+
+```powershell
+# New developer joins team
+git clone project
+nsfw install  # Reads project config
+# 5 minutes later: fully set up and productive
+# No more "works on my machine"
 ```
 
 ## Usage
@@ -363,26 +409,49 @@ See [docs/PHASE_2_WINDOWS_VALIDATION.md](docs/PHASE_2_WINDOWS_VALIDATION.md) for
 
 ## FAQ
 
+### General
+
 **Q: Do I need to know Nix to use NSFW?**
-A: No! NSFW provides a simple interface to Nix. Just search and install like any other package manager.
+A: No! NSFW hides Nix complexity. Just search and install like any other package manager. The power of Nix (70k packages, perfect isolation) without the learning curve.
 
 **Q: Can I use NSFW without WSL2?**
-A: No, NSFW requires WSL2 as it bridges to Nix running in WSL2. Nix packages are Linux binaries that need WSL2 to execute.
+A: No, NSFW requires WSL2. WSL2 is standard on Windows 11 and easy to enable on Windows 10. Our automated setup script handles the Nix configuration.
+
+**Q: How is this different from Chocolatey or winget?**
+A: NSFW has **70,000+ packages** (vs 9k for Chocolatey, 6k for winget) with **perfect isolation** - no version conflicts ever. Plus true reproducibility for research and team collaboration.
+
+### For Developers
+
+**Q: Can I have multiple Node/Python/Go versions installed?**
+A: Yes! That's the whole point. Node 14, 18, and 20 can all be installed and work simultaneously without conflicts. Each project gets its own isolated environment.
+
+**Q: Will this work with my existing projects?**
+A: Yes! NSFW doesn't interfere with system-installed tools. You can gradually migrate projects or run NSFW alongside existing tools.
+
+**Q: Can I script this in CI/CD?**
+A: Absolutely! Use `--yes` to skip prompts and `--format json` for machine-readable output. Perfect for automated workflows.
+
+### For Data Scientists
+
+**Q: Can this replace Anaconda/Conda?**
+A: Yes! NSFW provides better isolation (no environment corruption), faster installs, and perfect reproducibility. Import your conda environments or start fresh.
+
+**Q: Will my research be reproducible years later?**
+A: Yes! NSFW locks exact package versions. Your Python 3.11.2 + TensorFlow 2.15.0 environment will work identically in 5 years.
+
+**Q: Does this work with Jupyter notebooks?**
+A: Yes! Install Jupyter and your data science stack via NSFW, then use notebooks normally. Share your environment config for perfect reproducibility.
+
+**Q: Can I share environments with my team?**
+A: Yes! Export your environment as a config file. Your team imports it and gets the exact same setup - same Python version, same packages, same everything.
+
+### Technical
 
 **Q: Do packages run natively on Windows?**
-A: Packages run inside WSL2, not natively on Windows. NSFW provides seamless access from Windows, but execution happens in WSL2. See [NATIVE_WINDOWS_VISION.md](NATIVE_WINDOWS_VISION.md) for our hybrid approach vision.
-
-**Q: Will this work with WSL1?**
-A: No, WSL2 is required for proper file system integration and Nix daemon support.
-
-**Q: How is this different from running Nix directly in WSL2?**
-A: NSFW provides Windows-native CLI access, automatic path translation, beautiful UI, and eliminates the need to manually switch to WSL2 for package management.
-
-**Q: Can I use this in scripts?**
-A: Yes! Use `--yes` to skip confirmation prompts and `--format json` for machine-readable output.
+A: Packages run inside WSL2, not natively on Windows. NSFW provides seamless access from Windows, but execution happens in WSL2. See [NATIVE_WINDOWS_VISION.md](NATIVE_WINDOWS_VISION.md) for our future hybrid approach.
 
 **Q: Who is NSFW for?**
-A: Primarily Nix enthusiasts who use Windows (corporate laptops, gaming PCs). Also useful for DevOps engineers needing reproducible environments on Windows. See [MARKET_ANALYSIS.md](MARKET_ANALYSIS.md) for detailed market analysis.
+A: **Windows developers** fighting version conflicts and **data scientists** needing reproducible research. See [TARGET_STRATEGY.md](TARGET_STRATEGY.md) for complete positioning.
 
 ## License
 
