@@ -1,0 +1,1 @@
+- FYI I have installed claude code in powershell for testing as needed
