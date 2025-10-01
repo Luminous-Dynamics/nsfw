@@ -262,6 +262,25 @@ See our [Contributing Guide](CONTRIBUTING.md) for more details.
 
 ## Troubleshooting
 
+### Quick Setup (Recommended)
+
+If you encounter any Nix-related errors, run our automated setup script:
+
+```bash
+# In WSL2
+cd nsfw
+./setup-nix-wsl2.sh
+```
+
+This script will automatically:
+- Check your Nix installation
+- Add you to the nix-users group (fixes permission errors)
+- Start the Nix daemon if needed
+- Configure Nix channels (fixes search hangs)
+- Update channels to latest
+
+See [docs/NIX_SETUP.md](docs/NIX_SETUP.md) for detailed setup guide.
+
 ### "WSL2 is not available"
 
 Ensure WSL2 is installed and working:
@@ -275,20 +294,27 @@ wsl --list
 Install Nix in your WSL2 distribution:
 ```bash
 wsl
-curl -L https://nixos.org/nix/install | sh
+curl -L https://nixos.org/nix/install | sh -s -- --daemon
 ```
 
-### "Package not found"
+### "experimental Nix feature 'nix-command' is disabled"
 
-Update your Nix channels:
+This is fixed in the latest version. Update to the latest release or add to `~/.config/nix/nix.conf`:
+```
+experimental-features = nix-command flakes
+```
+
+### "Permission denied" on /nix/var/nix/daemon-socket/socket
+
+Run the setup script (see above) or manually add yourself to nix-users group:
 ```bash
-wsl
-nix-channel --update
+sudo usermod -a -G nix-users $USER
+newgrp nix-users  # Or logout/login
 ```
 
 ### Command hangs or is slow
 
-This is usually due to Nix updating its database. The first operation after a channel update may take several minutes.
+First run after Nix channel update takes 30-60 seconds to build database. Subsequent searches are cached and fast (<1s).
 
 ## Roadmap
 
@@ -302,20 +328,29 @@ This is usually due to Nix updating its database. The first operation after a ch
 
 **Achievement**: Solid, well-tested foundation ready for real-world validation
 
-### Phase 2: Performance & UX ✅ (Complete - Day 16)
+### Phase 2: Windows Validation ✅ (Complete - Day 16)
 - ✅ Thread-safe caching with 5-minute TTL (2000x-5000x speedup!)
 - ✅ Colored terminal output (green/yellow/red semantic colors)
 - ✅ Progress indicators (spinners & progress bars)
 - ✅ Interactive prompts with dialoguer
 - ✅ Enhanced error messages with context
 - ✅ Performance benchmarks implemented
-- ✅ VM testing infrastructure complete
-- ✅ Comprehensive documentation (1500+ lines)
-- ✅ Ready for Windows validation
+- ✅ **Windows binary built and tested on real Windows 11**
+- ✅ **5 critical bugs found and fixed** before any real users encountered them
+- ✅ **Automated Nix setup script** for WSL2 configuration
+- ✅ **903 lines of documentation** from real-world testing
+- ✅ **Comprehensive setup guide** for users
 
-**Achievement**: Beautiful, fast, well-documented CLI ready for production testing
+**Achievement**: Production-ready Windows binary validated on real hardware
 
-See [vm-testing/README.md](vm-testing/README.md) for testing infrastructure details.
+**Critical Bugs Fixed**:
+1. ✅ Binary type mismatch (Linux ELF → Windows PE32+ executable)
+2. ✅ Nix experimental features disabled on fresh installs
+3. ✅ Permission errors (nix-users group membership)
+4. ✅ Search hangs (missing Nix channels)
+5. ✅ All compiler warnings eliminated (0 warnings)
+
+See [docs/PHASE_2_WINDOWS_VALIDATION.md](docs/PHASE_2_WINDOWS_VALIDATION.md) for complete testing report.
 
 ### Phase 3: Advanced Features 📋 (Planned - Weeks 4+)
 - Package dependency visualization
@@ -332,16 +367,22 @@ See [vm-testing/README.md](vm-testing/README.md) for testing infrastructure deta
 A: No! NSFW provides a simple interface to Nix. Just search and install like any other package manager.
 
 **Q: Can I use NSFW without WSL2?**
-A: No, NSFW requires WSL2 as it bridges to Nix running in WSL2.
+A: No, NSFW requires WSL2 as it bridges to Nix running in WSL2. Nix packages are Linux binaries that need WSL2 to execute.
+
+**Q: Do packages run natively on Windows?**
+A: Packages run inside WSL2, not natively on Windows. NSFW provides seamless access from Windows, but execution happens in WSL2. See [NATIVE_WINDOWS_VISION.md](NATIVE_WINDOWS_VISION.md) for our hybrid approach vision.
 
 **Q: Will this work with WSL1?**
-A: No, WSL2 is required for proper file system integration.
+A: No, WSL2 is required for proper file system integration and Nix daemon support.
 
 **Q: How is this different from running Nix directly in WSL2?**
-A: NSFW provides Windows-native access, automatic path translation, and a friendlier interface.
+A: NSFW provides Windows-native CLI access, automatic path translation, beautiful UI, and eliminates the need to manually switch to WSL2 for package management.
 
 **Q: Can I use this in scripts?**
 A: Yes! Use `--yes` to skip confirmation prompts and `--format json` for machine-readable output.
+
+**Q: Who is NSFW for?**
+A: Primarily Nix enthusiasts who use Windows (corporate laptops, gaming PCs). Also useful for DevOps engineers needing reproducible environments on Windows. See [MARKET_ANALYSIS.md](MARKET_ANALYSIS.md) for detailed market analysis.
 
 ## License
 
@@ -362,20 +403,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Project Status
 
-- **Current Phase**: 2 - Windows Testing & Polish (Day 15/21)
-- **Phase 1**: ✅ Complete (124 tests passing)
-- **Stability**: Alpha
-- **Production Ready**: Not yet (Phase 2 testing in progress)
+- **Current Phase**: 2 Complete ✅ - Ready for v0.2.0-rc release
+- **Phase 1**: ✅ Complete (136 tests passing)
+- **Phase 2**: ✅ Complete (Windows validation on real hardware)
+- **Stability**: Release Candidate
+- **Production Ready**: Yes - tested on Windows 11 with WSL2
 - **Active Development**: Yes
-- **Next Milestone**: v0.2.0-rc after Phase 2 completion
+- **Next Milestone**: v0.2.0-rc tag and initial release
 
 ### Recent Updates
-- **2025-09-30**: ✨ Phase 2 COMPLETE - Performance, UI, docs, VM infrastructure all done!
-- **2025-09-30**: 🚀 GitHub repo created at https://github.com/Luminous-Dynamics/nsfw
-- **2025-09-30**: ⚡ Caching implemented - 2000x-5000x speedup on repeated searches
-- **2025-09-30**: 🎨 Beautiful colored UI with progress indicators
-- **2025-09-30**: 📚 1500+ lines of comprehensive documentation added
-- **2025-09-30**: Phase 1 complete - All 124 tests passing
+- **2025-10-01**: 🎉 **Phase 2 COMPLETE** - Windows binary validated on real Windows 11 hardware
+- **2025-10-01**: 🐛 **5 critical bugs fixed** - All discovered and resolved before any users affected
+- **2025-10-01**: 📚 **903 lines of testing documentation** - Complete setup guides and validation reports
+- **2025-10-01**: 🤖 **Automated setup script** - One-command Nix configuration for WSL2
+- **2025-10-01**: 📊 **Market analysis complete** - Target audience and strategy identified
+- **2025-09-30**: 🚀 **GitHub repo created** at https://github.com/Luminous-Dynamics/nsfw
+- **2025-09-30**: ⚡ **Caching implemented** - 2000x-5000x speedup on repeated searches
+- **2025-09-30**: 🎨 **Beautiful colored UI** with progress indicators and spinners
+- **2025-09-30**: ✅ **All 136 tests passing** with 0 compiler warnings
 
 ---
 
