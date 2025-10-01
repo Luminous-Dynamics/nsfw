@@ -2,7 +2,25 @@
 
 This guide helps you set up Nix correctly in WSL2 for use with NSFW.
 
-## Quick Fix
+## Automated Setup (Recommended)
+
+We provide a setup script that handles everything automatically:
+
+```bash
+# In WSL2
+cd ~/nsfw
+./setup-nix-wsl2.sh
+```
+
+This script will:
+- ✅ Check if you're in the `nix-users` group (and add you if needed)
+- ✅ Verify the Nix daemon is running
+- ✅ Configure Nix channels
+- ✅ Test that everything works
+
+## Quick Manual Fixes
+
+### Permission Denied Error
 
 If you're getting permission errors like:
 ```
@@ -17,6 +35,16 @@ sudo usermod -a -G nix-users $USER
 
 # Log out and log back in, or run:
 newgrp nix-users
+```
+
+### Channels Not Configured
+
+If Nix commands hang or you get "no channels" errors:
+
+```bash
+# In WSL2
+nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
+nix-channel --update
 ```
 
 ## Fresh Nix Installation
