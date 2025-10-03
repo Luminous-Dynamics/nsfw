@@ -79,6 +79,17 @@ enum Commands {
     /// Update the package database
     Update {},
 
+    /// Setup WSL2 and Nix environment (first-time setup)
+    Setup {
+        /// Skip confirmation prompts
+        #[arg(short = 'y', long)]
+        yes: bool,
+
+        /// Use interactive mode to choose options
+        #[arg(short, long)]
+        interactive: bool,
+    },
+
     /// Generate wrapper script for a package (internal)
     #[command(hide = true)]
     GenerateWrapper {
@@ -126,6 +137,9 @@ fn main() {
         }
         Commands::Update {} => {
             cli::commands::update()
+        }
+        Commands::Setup { yes, interactive } => {
+            cli::commands::setup(yes, interactive)
         }
         Commands::GenerateWrapper { package, package_path } => {
             cli::commands::generate_wrapper(&package, &package_path)

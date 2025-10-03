@@ -14,6 +14,10 @@ pub mod wsl2;
 // Performance and UX modules (Phase 2+)
 pub mod cache;
 pub mod ui;
+pub mod package_cache;
+
+// Setup wizard module
+pub mod setup;
 
 // Re-export CLI module for internal use
 pub mod cli;

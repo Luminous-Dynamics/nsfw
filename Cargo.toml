@@ -44,6 +44,10 @@ dialoguer = "0.11"           # Interactive prompts
 once_cell = "1.19"           # Lazy static initialization for caching
 regex = "1.10"               # Better pattern matching for errors
 
+# Dynamic package cache (Phase 2 - Speed optimization)
+rusqlite = { version = "0.32", features = ["bundled"] }  # Local package database
+dirs = "5.0"                 # Cross-platform directory paths
+
 # For WSL bridge (Phase 2)
 # windows = { version = "0.58", features = ["Win32_Foundation", "Win32_System_Console"] }
 

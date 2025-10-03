@@ -1,29 +1,66 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::nix_ops::{BridgedNixExecutor, NixError};
+use crate::nix_ops::{BridgedNixExecutor, NixError, types::SearchResult};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
 use crate::wsl2::RealWSL2Bridge;
 use crate::cache::SearchCache;
 use crate::ui::{ProgressIndicator, OutputFormatter, MessageType};
+use crate::package_cache::{PackageCache, CacheBuilder, CachedPackage};
+
+/// Helper to spawn background cache update if needed
+fn spawn_cache_update_if_needed(cache: PackageCache) {
+    std::thread::spawn(move || {
+        let bridge = RealWSL2Bridge::new();
+        let builder = CacheBuilder::new(cache, bridge);
+
+        if let Ok(true) = builder.needs_update() {
+            log::info!("Starting background cache update");
+            if let Err(e) = builder.build_from_nix_env() {
+                log::warn!("Background cache update failed: {}", e);
+            }
+        }
+    });
+}
 
 pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     // Show search header
     eprintln!("{}", OutputFormatter::format_section(&format!("Searching for '{}'", query)));
 
-    // Check cache first
-    if let Some(cached_results) = SearchCache::get(query, limit) {
-        log::debug!("Using cached results for '{}'", query);
+    // Try package cache first (local database - instant!)
+    let pkg_cache = PackageCache::new()?;
+    pkg_cache.initialize()?;
 
-        if format == "json" {
-            let json = serde_json::to_string_pretty(&cached_results)?;
-            println!("{}", json);
+    if !pkg_cache.is_empty() {
+        log::debug!("Checking package cache for '{}'", query);
+        let cached_packages = pkg_cache.search(query, limit)?;
+
+        if !cached_packages.is_empty() {
+            log::info!("Found {} results in package cache", cached_packages.len());
+
+            // Convert to SearchResult format
+            let results: Vec<SearchResult> = cached_packages.iter().map(|p| SearchResult {
+                pname: p.name.clone(),
+                version: p.version.clone(),
+                description: p.description.clone(),
+            }).collect();
+
+            // Output results
+            if format == "json" {
+                let json = serde_json::to_string_pretty(&results)?;
+                println!("{}", json);
+            } else {
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("⚡ Found {} result(s) (instant search!)", results.len())));
+                print!("{}", OutputFormatter::format_search_results(&results, true));
+            }
+
+            // Start background cache update if needed
+            spawn_cache_update_if_needed(pkg_cache);
+
+            return Ok(());
         } else {
-            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Using cached results"));
-            print!("{}", OutputFormatter::format_search_results(&cached_results, true));
+            log::debug!("No results in package cache, falling back to Nix search");
         }
-
-        return Ok(());
     }
 
     // Create progress spinner
@@ -74,8 +111,34 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
         Ok(results) => {
             progress.finish_and_clear();
 
-            // Cache the results
+            // Cache the results (search cache for this specific query)
             SearchCache::put(query, limit, results.clone());
+
+            // Add results to package cache for future instant searches
+            let cached_packages: Vec<CachedPackage> = results.iter().map(|r| CachedPackage {
+                name: r.pname.clone(),
+                version: r.version.clone(),
+                description: r.description.clone(),
+                attr_path: format!("nixpkgs.{}", r.pname),
+                last_updated: chrono::Utc::now().timestamp(),
+                search_count: 0,
+            }).collect();
+
+            if !cached_packages.is_empty() {
+                if let Err(e) = pkg_cache.upsert_packages(&cached_packages) {
+                    log::warn!("Failed to cache search results: {}", e);
+                }
+            }
+
+            // Start background cache build if cache is empty (first-time user)
+            if pkg_cache.is_empty() {
+                log::info!("Starting background cache build for future instant searches");
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Info,
+                    "💡 Building local package cache in background for instant future searches..."
+                ));
+                spawn_cache_update_if_needed(pkg_cache);
+            }
 
             // Output results based on format
             match format {
@@ -312,4 +375,11 @@ pub fn generate_wrapper(package: &str, package_path: &str) -> Result<()> {
     println!("   You can now run: {}", wrapper_path.display());
 
     Ok(())
+}
+
+pub fn setup(auto_yes: bool, interactive: bool) -> Result<()> {
+    use crate::setup::SetupWizard;
+
+    let wizard = SetupWizard::new(auto_yes, interactive);
+    wizard.run()
 }
