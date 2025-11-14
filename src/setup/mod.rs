@@ -123,7 +123,7 @@ impl SetupWizard {
 
         eprintln!("  {} Linux distribution: {}", distro_icon, if distro.is_installed {
             log::debug!("Detected distro name: '{}'", distro.distro_name);
-            format!("{}", distro.distro_name)
+            distro.distro_name.clone()
         } else {
             "None found".to_string()
         });

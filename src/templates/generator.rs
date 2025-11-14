@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, anyhow};
 use chrono::Local;
 
-use super::templates::{ConsoleTemplate, GuiTemplate, VbsTemplate, WrapperTemplate};
+use super::content::{ConsoleTemplate, GuiTemplate, VbsTemplate, WrapperTemplate};
 
 /// Type of wrapper to generate
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,5 +1,5 @@
 pub mod generator;
-pub mod templates;
+pub mod content;
 
 pub use generator::{WrapperGenerator, WrapperType, PackageInfo};
-pub use templates::WrapperTemplate;
+pub use content::WrapperTemplate;

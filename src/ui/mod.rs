@@ -73,14 +73,16 @@ mod tests {
     #[test]
     fn test_create_spinner() {
         let spinner = create_spinner("Testing...");
-        assert!(true); // Just verify it doesn't panic
+        // Verify spinner was created successfully
+        assert!(!spinner.is_finished());
         spinner.finish_and_clear();
     }
 
     #[test]
     fn test_create_progress_bar() {
         let pb = create_progress_bar(100, "Processing");
-        assert!(true); // Just verify it doesn't panic
+        // Verify progress bar was created successfully
+        assert_eq!(pb.length(), Some(100));
         pb.finish_and_clear();
     }
 }

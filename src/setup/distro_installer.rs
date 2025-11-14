@@ -13,7 +13,7 @@ pub fn install_distro(distro: &str) -> Result<()> {
 
     // Use 'wsl --install -d <distro>' to install specific distribution
     let output = Command::new("wsl")
-        .args(&["--install", "-d", distro])
+        .args(["--install", "-d", distro])
         .output()
         .context("Failed to install Linux distribution")?;
 

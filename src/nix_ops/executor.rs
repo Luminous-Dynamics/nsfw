@@ -48,7 +48,7 @@ impl NixExecutor {
         let version_output = Command::new("nix")
             .arg("--version")
             .output()
-            .map_err(|e| NixError::IoError(e))?;
+            .map_err(NixError::IoError)?;
 
         let version = String::from_utf8_lossy(&version_output.stdout)
             .trim()
@@ -88,7 +88,7 @@ impl NixExecutor {
 
         // Execute command
         let output = cmd.output()
-            .map_err(|e| NixError::IoError(e))?;
+            .map_err(NixError::IoError)?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -110,7 +110,7 @@ impl NixExecutor {
         }
 
         let json: HashMap<String, Value> = serde_json::from_str(&stdout)
-            .map_err(|e| NixError::ParseError(e))?;
+            .map_err(NixError::ParseError)?;
 
         // Convert to SearchResult objects
         let mut results = Vec::new();
@@ -171,7 +171,7 @@ impl NixExecutor {
 
         // Execute command
         let output = cmd.output()
-            .map_err(|e| NixError::IoError(e))?;
+            .map_err(NixError::IoError)?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -198,7 +198,7 @@ impl NixExecutor {
         }
 
         let json: Value = serde_json::from_str(json_str)
-            .map_err(|e| NixError::ParseError(e))?;
+            .map_err(NixError::ParseError)?;
 
         let mut packages = Vec::new();
 
@@ -317,7 +317,7 @@ impl NixExecutor {
 
         // Execute command
         let output = cmd.output()
-            .map_err(|e| NixError::IoError(e))?;
+            .map_err(NixError::IoError)?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -366,7 +366,7 @@ impl NixExecutor {
 
         // Execute command
         let output = cmd.output()
-            .map_err(|e| NixError::IoError(e))?;
+            .map_err(NixError::IoError)?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

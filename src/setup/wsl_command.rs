@@ -22,7 +22,7 @@ pub fn run_wsl_command(args: &[&str]) -> Result<String> {
     log::debug!("Running WSL command via PowerShell: {}", ps_command);
 
     let output = Command::new("powershell.exe")
-        .args(&["-NoProfile", "-Command", &ps_command])
+        .args(["-NoProfile", "-Command", &ps_command])
         .output()
         .context("Failed to execute PowerShell")?;
 
@@ -50,7 +50,7 @@ fn decode_utf16_le(bytes: &[u8]) -> String {
     }
 
     // If byte count is odd, we have a problem - fall back to UTF-8
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         log::warn!("Odd number of bytes in UTF-16 output, falling back to UTF-8");
         return String::from_utf8_lossy(bytes).to_string();
     }
@@ -85,7 +85,7 @@ pub fn run_wsl_distro_command(distro: &str, command: &[&str]) -> Result<String> 
     log::debug!("Running WSL distro command: {}", ps_command);
 
     let output = Command::new("powershell.exe")
-        .args(&["-NoProfile", "-Command", &ps_command])
+        .args(["-NoProfile", "-Command", &ps_command])
         .output()
         .context("Failed to execute PowerShell")?;
 
@@ -115,7 +115,7 @@ pub fn wsl_command_exists(args: &[&str]) -> bool {
     let ps_command = format!("wsl {}", wsl_args);
 
     let output = Command::new("powershell.exe")
-        .args(&["-NoProfile", "-Command", &ps_command])
+        .args(["-NoProfile", "-Command", &ps_command])
         .output();
 
     match output {
@@ -142,6 +142,8 @@ mod tests {
     #[test]
     fn test_wsl_command_construction() {
         // Just test that the functions exist and compile
-        assert!(true);
+        // Test decode function with empty input
+        let empty = decode_utf16_le(&[]);
+        assert_eq!(empty, "");
     }
 }

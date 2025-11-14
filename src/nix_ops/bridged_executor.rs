@@ -38,10 +38,7 @@ impl<B: WSL2Bridge> BridgedNixExecutor<B> {
     pub fn is_cache_built(&self) -> bool {
         // Check if the eval cache directory exists in WSL2
         let check_cmd = "test -d ~/.cache/nix/eval-cache-v5 && echo 'exists' || echo 'missing'";
-        match self.bridge.execute("sh", &["-c", check_cmd]) {
-            Ok(output) if output.stdout.trim() == "exists" => true,
-            _ => false,
-        }
+        matches!(self.bridge.execute("sh", &["-c", check_cmd]), Ok(output) if output.stdout.trim() == "exists")
     }
 
     /// Check if Nix is available in WSL2
@@ -264,9 +261,9 @@ mod tests {
     #[test]
     fn test_bridged_executor_new() {
         let bridge = MockWSL2Bridge::new();
-        let _executor = BridgedNixExecutor::new(bridge);
-        // Just verify construction
-        assert!(true);
+        let executor = BridgedNixExecutor::new(bridge);
+        // Verify construction by checking cache status
+        assert!(!executor.is_cache_built());
     }
 
     #[test]

@@ -70,7 +70,7 @@ pub fn install_nix(distro: &str, auto_yes: bool) -> Result<()> {
     progress.set_message("Installing Nix...");
 
     let output = Command::new("wsl")
-        .args(&["-d", distro, "--", "bash", "-c", &install_cmd])
+        .args(["-d", distro, "--", "bash", "-c", &install_cmd])
         .output()
         .context("Failed to install Nix")?;
 
@@ -88,7 +88,7 @@ pub fn install_nix(distro: &str, auto_yes: bool) -> Result<()> {
 
         eprintln!("{}", OutputFormatter::format_message(
             MessageType::Error,
-            &format!("Nix installation failed. Run with --verbose for details.")
+            "Nix installation failed. Run with --verbose for details."
         ));
 
         if log::log_enabled!(log::Level::Debug) {
@@ -124,7 +124,7 @@ fi
 "#;
 
     Command::new("wsl")
-        .args(&["-d", distro, "--", "bash", "-c", config_cmd])
+        .args(["-d", distro, "--", "bash", "-c", config_cmd])
         .output()
         .context("Failed to configure Nix")?;
 
@@ -177,14 +177,14 @@ fn configure_channels(distro: &str) -> Result<()> {
 
     // Add nixpkgs-unstable channel
     Command::new("wsl")
-        .args(&["-d", distro, "--", "nix-channel", "--add", "https://nixos.org/channels/nixpkgs-unstable", "nixpkgs"])
+        .args(["-d", distro, "--", "nix-channel", "--add", "https://nixos.org/channels/nixpkgs-unstable", "nixpkgs"])
         .output()?;
 
     // Update channels (this can take a while)
     let progress = ProgressIndicator::spinner("Updating channels...");
 
     let update_result = Command::new("wsl")
-        .args(&["-d", distro, "--", "nix-channel", "--update"])
+        .args(["-d", distro, "--", "nix-channel", "--update"])
         .output()?;
 
     progress.finish_and_clear();

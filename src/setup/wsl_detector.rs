@@ -19,7 +19,7 @@ pub struct DistroStatus {
 pub fn check_wsl2() -> Result<WSL2Status> {
     // Try to run 'wsl --status'
     let output = Command::new("wsl")
-        .args(&["--status"])
+        .args(["--status"])
         .output();
 
     match output {
@@ -34,7 +34,7 @@ pub fn check_wsl2() -> Result<WSL2Status> {
             // WSL might be installed but not configured
             // Try 'wsl --version' as fallback
             let version_output = Command::new("wsl")
-                .args(&["--version"])
+                .args(["--version"])
                 .output();
 
             match version_output {
@@ -91,7 +91,7 @@ pub fn check_linux_distro() -> Result<DistroStatus> {
 pub fn install_wsl2() -> Result<()> {
     // Run 'wsl --install' which installs WSL2 and Ubuntu by default
     let output = Command::new("wsl")
-        .args(&["--install"])
+        .args(["--install"])
         .output()
         .context("Failed to run 'wsl --install'")?;
 
@@ -120,7 +120,7 @@ fn parse_distro_list(output: &str) -> Vec<String> {
     let mut distros = Vec::new();
 
     // WSL output may contain UTF-16 BOM and special characters
-    let cleaned = output.replace('\u{feff}', "").replace('\r', "");
+    let cleaned = output.replace(['\u{feff}', '\r'], "");
 
     for line in cleaned.lines().skip(1) { // Skip header
         let line = line.trim();

@@ -227,9 +227,9 @@ mod tests {
         cache.initialize().unwrap();
 
         let bridge = MockWSL2Bridge::new();
-        let _builder = CacheBuilder::new(cache, bridge);
+        let builder = CacheBuilder::new(cache, bridge);
 
-        // Just verify construction works
-        assert!(true);
+        // Verify construction works by checking needs_update
+        assert!(builder.needs_update().is_ok());
     }
 }

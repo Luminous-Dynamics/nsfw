@@ -1,5 +1,4 @@
 /// Wrapper script templates for different package types
-
 /// Console application wrapper template
 /// Runs in visible command prompt window
 pub const CONSOLE_WRAPPER: &str = r#"@echo off

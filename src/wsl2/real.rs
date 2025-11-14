@@ -104,16 +104,16 @@ mod tests {
 
     #[test]
     fn test_real_bridge_new() {
-        let _bridge = RealWSL2Bridge::new();
-        // Just verify it constructs successfully
-        assert!(true);
+        let bridge = RealWSL2Bridge::new();
+        // Verify it constructs successfully by checking a method
+        assert!(!bridge.is_windows_path("/mnt/c"));
     }
 
     #[test]
     fn test_real_bridge_default() {
-        let _bridge = RealWSL2Bridge::default();
-        // Just verify it constructs successfully
-        assert!(true);
+        let bridge = RealWSL2Bridge::default();
+        // Verify it constructs successfully by checking a method
+        assert!(bridge.is_windows_path("C:\\test"));
     }
 
     #[test]
