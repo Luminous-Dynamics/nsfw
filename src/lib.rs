@@ -19,5 +19,8 @@ pub mod package_cache;
 // Setup wizard module
 pub mod setup;
 
+// Configuration module
+pub mod config;
+
 // Re-export CLI module for internal use
 pub mod cli;

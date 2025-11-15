@@ -7,7 +7,7 @@ use nsfw::cli;
 #[derive(Parser)]
 #[command(name = "nsfw")]
 #[command(author = "Luminous Dynamics")]
-#[command(version = "0.2.0")]
+#[command(version = "0.3.0")]
 #[command(about = "Nix Subsystem for Windows - Natural language Nix package management", long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
@@ -115,6 +115,72 @@ enum Commands {
         #[arg(default_value = "powershell")]
         shell: String,
     },
+
+    /// Manage configuration settings
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
+    /// Upgrade installed package(s) to latest version
+    Upgrade {
+        /// Package name (if omitted, upgrades all packages)
+        package: Option<String>,
+
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+
+    /// Export installed packages to a file
+    Export {
+        /// Output file path (defaults to nsfw-packages.json)
+        #[arg(short, long, default_value = "nsfw-packages.json")]
+        output: String,
+
+        /// Output format (json, toml)
+        #[arg(short, long, default_value = "json")]
+        format: String,
+    },
+
+    /// Import and install packages from a file
+    Import {
+        /// Input file path
+        file: String,
+
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Show all configuration settings
+    Show,
+
+    /// Get a specific configuration value
+    Get {
+        /// Configuration key
+        key: String,
+    },
+
+    /// Set a configuration value
+    Set {
+        /// Configuration key
+        key: String,
+        /// New value
+        value: String,
+    },
+
+    /// Reset configuration to defaults
+    Reset,
+
+    /// Show configuration file path
+    Path,
+
+    /// List all available configuration keys
+    Keys,
 }
 
 #[derive(Subcommand)]
@@ -144,7 +210,7 @@ fn main() {
             .init();
     }
 
-    info!("NSFW v0.2.0 starting...");
+    info!("NSFW v0.3.0 starting...");
 
     // Execute command
     let result = match cli.command {
@@ -184,6 +250,25 @@ fn main() {
         }
         Commands::Completion { shell } => {
             cli::commands::install_completion(&shell)
+        }
+        Commands::Config { action } => {
+            match action {
+                ConfigAction::Show => cli::commands::config_show(),
+                ConfigAction::Get { key } => cli::commands::config_get(&key),
+                ConfigAction::Set { key, value } => cli::commands::config_set(&key, &value),
+                ConfigAction::Reset => cli::commands::config_reset(),
+                ConfigAction::Path => cli::commands::config_path(),
+                ConfigAction::Keys => cli::commands::config_keys(),
+            }
+        }
+        Commands::Upgrade { package, yes } => {
+            cli::commands::upgrade(package.as_deref(), yes)
+        }
+        Commands::Export { output, format } => {
+            cli::commands::export(&output, &format)
+        }
+        Commands::Import { file, yes } => {
+            cli::commands::import(&file, yes)
         }
     };
 

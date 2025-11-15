@@ -1,6 +1,8 @@
-use anyhow::Result;
+use anyhow::{Result, Context as AnyhowContext};
 use std::path::PathBuf;
+use std::fs;
 use colored::Colorize;
+use serde::{Serialize, Deserialize};
 
 use crate::nix_ops::{BridgedNixExecutor, NixError, ErrorContext, types::SearchResult};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
@@ -8,6 +10,7 @@ use crate::wsl2::{RealWSL2Bridge, bridge::WSL2Bridge};
 use crate::cache::SearchCache;
 use crate::ui::{ProgressIndicator, OutputFormatter, MessageType};
 use crate::package_cache::{PackageCache, CacheBuilder, CachedPackage};
+use crate::config::Config;
 
 /// Helper function to format NixError with context
 fn format_nix_error(error: &NixError) -> String {
@@ -978,6 +981,424 @@ pub fn doctor() -> Result<()> {
     eprintln!("For more help, visit: {}",
         "https://github.com/Luminous-Dynamics/nsfw".bright_blue().underline()
     );
+
+    Ok(())
+}
+
+// ============================================================================
+// Configuration Commands
+// ============================================================================
+
+/// Show all configuration settings
+pub fn config_show() -> Result<()> {
+    let config = Config::load()?;
+
+    println!("{}", "Configuration Settings".bright_cyan().bold());
+    println!();
+
+    for key in Config::keys() {
+        let value = config.get(key)?;
+        let description = Config::key_description(key);
+
+        println!("  {} = {}",
+            key.bright_yellow(),
+            value.bright_white()
+        );
+        println!("    {}", description.dimmed());
+        println!();
+    }
+
+    let config_path = Config::config_path()?;
+    println!("{} {}",
+        "Config file:".bright_cyan(),
+        config_path.display().to_string().bright_blue()
+    );
+
+    Ok(())
+}
+
+/// Get a specific configuration value
+pub fn config_get(key: &str) -> Result<()> {
+    let config = Config::load()?;
+    let value = config.get(key)?;
+
+    println!("{}", value);
+
+    Ok(())
+}
+
+/// Set a configuration value
+pub fn config_set(key: &str, value: &str) -> Result<()> {
+    let mut config = Config::load()?;
+
+    println!("{} {} {} {}",
+        "Setting".bright_cyan(),
+        key.bright_yellow(),
+        "to".bright_cyan(),
+        value.bright_green()
+    );
+
+    config.set(key, value)?;
+    config.save()?;
+
+    println!();
+    println!("{} Configuration updated successfully!",
+        "✓".bright_green().bold()
+    );
+
+    let config_path = Config::config_path()?;
+    println!("  File: {}", config_path.display().to_string().dimmed());
+
+    Ok(())
+}
+
+/// Reset configuration to defaults
+pub fn config_reset() -> Result<()> {
+    println!("{}", "Resetting configuration to defaults...".bright_yellow());
+
+    let default_config = Config::default();
+    default_config.save()?;
+
+    println!();
+    println!("{} Configuration reset successfully!",
+        "✓".bright_green().bold()
+    );
+
+    let config_path = Config::config_path()?;
+    println!("  File: {}", config_path.display().to_string().dimmed());
+
+    Ok(())
+}
+
+/// Show configuration file path
+pub fn config_path() -> Result<()> {
+    let config_path = Config::config_path()?;
+
+    println!("{}", config_path.display());
+
+    Ok(())
+}
+
+/// List all available configuration keys
+pub fn config_keys() -> Result<()> {
+    println!("{}", "Available Configuration Keys".bright_cyan().bold());
+    println!();
+
+    for key in Config::keys() {
+        let description = Config::key_description(key);
+
+        println!("  {}", key.bright_yellow());
+        println!("    {}", description.dimmed());
+        println!();
+    }
+
+    println!("{}", "Usage:".bright_cyan().bold());
+    println!("  {} {}", "nsfw config get".bright_white(), "<key>".dimmed());
+    println!("  {} {} {}", "nsfw config set".bright_white(), "<key>".dimmed(), "<value>".dimmed());
+
+    Ok(())
+}
+
+// ============================================================================
+// Package Management Commands
+// ============================================================================
+
+/// Exported package list format
+#[derive(Debug, Serialize, Deserialize)]
+struct ExportedPackages {
+    /// Timestamp when exported
+    exported_at: String,
+    /// NSFW version
+    version: String,
+    /// List of installed packages
+    packages: Vec<ExportedPackage>,
+}
+
+/// Single exported package
+#[derive(Debug, Serialize, Deserialize)]
+struct ExportedPackage {
+    /// Package name
+    name: String,
+    /// Package version (if available)
+    version: Option<String>,
+}
+
+/// Upgrade installed package(s) to latest version
+pub fn upgrade(package: Option<&str>, yes: bool) -> Result<()> {
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    if let Some(pkg_name) = package {
+        // Upgrade single package
+        println!("{} {}",
+            "Upgrading package:".bright_cyan(),
+            pkg_name.bright_yellow()
+        );
+
+        if !yes {
+            use dialoguer::Confirm;
+            let confirmed = Confirm::new()
+                .with_prompt(format!("Upgrade {} to latest version?", pkg_name))
+                .default(true)
+                .interact()?;
+
+            if !confirmed {
+                println!("Upgrade cancelled.");
+                return Ok(());
+            }
+        }
+
+        // For now, upgrade = remove + install latest
+        // First remove the old version
+        match executor.remove(pkg_name) {
+            Ok(_) => {
+                println!("{} Removed old version",
+                    "✓".bright_green()
+                );
+            }
+            Err(e) => {
+                eprint!("{}", format_nix_error(&e));
+                return Err(e.into());
+            }
+        }
+
+        // Then install the latest version
+        match executor.install(pkg_name) {
+            Ok(_) => {
+                println!("{} Installed latest version",
+                    "✓".bright_green()
+                );
+            }
+            Err(e) => {
+                eprint!("{}", format_nix_error(&e));
+                return Err(e.into());
+            }
+        }
+
+        println!();
+        println!("{} Successfully upgraded {}!",
+            "✓".bright_green().bold(),
+            pkg_name.bright_yellow()
+        );
+
+    } else {
+        // Upgrade all packages
+        println!("{}", "Upgrading all packages...".bright_cyan());
+
+        // Get list of installed packages
+        let installed = match executor.list() {
+            Ok(packages) => packages,
+            Err(e) => {
+                eprint!("{}", format_nix_error(&e));
+                return Err(e.into());
+            }
+        };
+
+        if installed.is_empty() {
+            println!("No packages installed.");
+            return Ok(());
+        }
+
+        println!("Found {} installed packages", installed.len());
+
+        if !yes {
+            use dialoguer::Confirm;
+            let confirmed = Confirm::new()
+                .with_prompt(format!("Upgrade {} packages to latest versions?", installed.len()))
+                .default(true)
+                .interact()?;
+
+            if !confirmed {
+                println!("Upgrade cancelled.");
+                return Ok(());
+            }
+        }
+
+        let mut success_count = 0;
+        let mut fail_count = 0;
+
+        for pkg in &installed {
+            print!("Upgrading {}... ", pkg.name.bright_yellow());
+
+            // Remove old version
+            match executor.remove(&pkg.name) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("{}", "Failed to remove".bright_red());
+                    eprintln!("  Error: {}", e);
+                    fail_count += 1;
+                    continue;
+                }
+            }
+
+            // Install latest version
+            match executor.install(&pkg.name) {
+                Ok(_) => {
+                    println!("{}", "✓".bright_green());
+                    success_count += 1;
+                }
+                Err(e) => {
+                    println!("{}", "Failed".bright_red());
+                    eprintln!("  Error: {}", e);
+                    fail_count += 1;
+                }
+            }
+        }
+
+        println!();
+        println!("{}", "Upgrade Summary".bright_cyan().bold());
+        println!("  {} Succeeded: {}", "✓".bright_green(), success_count);
+        if fail_count > 0 {
+            println!("  {} Failed: {}", "✗".bright_red(), fail_count);
+        }
+    }
+
+    Ok(())
+}
+
+/// Export installed packages to a file
+pub fn export(output: &str, format: &str) -> Result<()> {
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    println!("{} {}",
+        "Exporting packages to:".bright_cyan(),
+        output.bright_yellow()
+    );
+
+    // Get list of installed packages
+    let installed = match executor.list() {
+        Ok(packages) => packages,
+        Err(e) => {
+            eprint!("{}", format_nix_error(&e));
+            return Err(e.into());
+        }
+    };
+
+    if installed.is_empty() {
+        println!("No packages installed to export.");
+        return Ok(());
+    }
+
+    // Create export structure
+    let exported = ExportedPackages {
+        exported_at: chrono::Utc::now().to_rfc3339(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        packages: installed.iter().map(|pkg| ExportedPackage {
+            name: pkg.name.clone(),
+            version: Some(pkg.version.clone()),
+        }).collect(),
+    };
+
+    // Serialize based on format
+    let content = match format {
+        "json" => {
+            serde_json::to_string_pretty(&exported)
+                .context("Failed to serialize to JSON")?
+        }
+        "toml" => {
+            toml::to_string_pretty(&exported)
+                .context("Failed to serialize to TOML")?
+        }
+        _ => {
+            return Err(anyhow::anyhow!("Unknown format: {}. Use 'json' or 'toml'", format));
+        }
+    };
+
+    // Write to file
+    fs::write(output, content)
+        .context("Failed to write export file")?;
+
+    println!();
+    println!("{} Exported {} packages",
+        "✓".bright_green().bold(),
+        installed.len()
+    );
+    println!("  Format: {}", format.dimmed());
+    println!("  File: {}", output.dimmed());
+
+    Ok(())
+}
+
+/// Import and install packages from a file
+pub fn import(file: &str, yes: bool) -> Result<()> {
+    println!("{} {}",
+        "Importing packages from:".bright_cyan(),
+        file.bright_yellow()
+    );
+
+    // Read file
+    let content = fs::read_to_string(file)
+        .context("Failed to read import file")?;
+
+    // Try to parse as JSON first, then TOML
+    let exported: ExportedPackages = if let Ok(parsed) = serde_json::from_str(&content) {
+        parsed
+    } else if let Ok(parsed) = toml::from_str(&content) {
+        parsed
+    } else {
+        return Err(anyhow::anyhow!("Failed to parse file as JSON or TOML"));
+    };
+
+    println!("Found {} packages to install", exported.packages.len());
+    println!("  Exported at: {}", exported.exported_at.dimmed());
+    println!("  Exported from NSFW version: {}", exported.version.dimmed());
+    println!();
+
+    if !yes {
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Install {} packages?", exported.packages.len()))
+            .default(true)
+            .interact()?;
+
+        if !confirmed {
+            println!("Import cancelled.");
+            return Ok(());
+        }
+    }
+
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    let mut success_count = 0;
+    let mut fail_count = 0;
+    let mut skipped_count = 0;
+
+    for pkg in &exported.packages {
+        print!("Installing {}... ", pkg.name.bright_yellow());
+
+        // Check if already installed
+        if let Ok(installed) = executor.list() {
+            if installed.iter().any(|p| p.name == pkg.name) {
+                println!("{}", "Already installed".bright_blue());
+                skipped_count += 1;
+                continue;
+            }
+        }
+
+        match executor.install(&pkg.name) {
+            Ok(_) => {
+                println!("{}", "✓".bright_green());
+                success_count += 1;
+            }
+            Err(e) => {
+                println!("{}", "Failed".bright_red());
+                eprintln!("  Error: {}", e);
+                fail_count += 1;
+            }
+        }
+    }
+
+    println!();
+    println!("{}", "Import Summary".bright_cyan().bold());
+    println!("  {} Installed: {}", "✓".bright_green(), success_count);
+    if skipped_count > 0 {
+        println!("  {} Skipped (already installed): {}", "→".bright_blue(), skipped_count);
+    }
+    if fail_count > 0 {
+        println!("  {} Failed: {}", "✗".bright_red(), fail_count);
+    }
 
     Ok(())
 }

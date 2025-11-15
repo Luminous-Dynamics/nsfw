@@ -1,6 +1,6 @@
 [package]
 name = "nsfw"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Luminous Dynamics <tristan.stoltz@evolvingresonantcocreationism.com>"]
 description = "Nix Subsystem for Windows - Natural language Nix package management"
@@ -22,6 +22,7 @@ thiserror = "1.0"
 # JSON parsing
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "0.8"                 # TOML config file parsing
 
 # Subprocess management
 tokio = { version = "1.40", features = ["full"] }
