@@ -34,6 +34,7 @@
 - **Configuration**: Customize behavior via user config file (~/.nswfrc)
 - **Package Management**: Upgrade, export, and import package lists
 - **Enhanced Errors**: Helpful error messages with actionable suggestions
+- **Dry-Run Mode**: Preview operations safely before executing (`--dry-run` flag)
 
 ## Prerequisites
 
@@ -328,6 +329,55 @@ nsfw import backup.json --yes
 - 🔄 Migrate packages to new machine
 - 👥 Share package lists with team
 - 🎯 Restore after system reset
+
+### Safe Operation Previews (Dry-Run Mode)
+
+Preview what operations will do before executing them:
+
+```powershell
+# Preview package installation
+nsfw install firefox --dry-run
+
+# Preview package removal
+nsfw remove python3 --dry-run
+
+# Preview upgrades
+nsfw upgrade --dry-run                    # All packages
+nsfw upgrade nodejs --dry-run             # Specific package
+
+# Preview imports
+nsfw import backup.json --dry-run
+```
+
+**What dry-run shows:**
+- ✓ Step-by-step breakdown of actions
+- ✓ Which packages will be affected
+- ✓ WSL2 and Nix operations
+- ✓ Wrapper script changes
+- ✓ Clear "no changes made" message
+
+**Example output:**
+```
+DRY RUN: Would install 'firefox'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following actions would be performed:
+  → Connect to WSL2
+  → Check Nix availability
+  → Search for package: firefox
+  → Install package via nix-env
+  → Generate Windows wrapper scripts
+
+💡 No changes will be made (dry-run mode)
+   Remove --dry-run to perform actual installation
+```
+
+**Use cases:**
+- 🔍 Verify correct package before installing
+- 📋 Review upgrade scope before committing
+- 🧪 Test import files without modifications
+- 📝 Generate operation documentation
+- 🎓 Learn what NSFW does under the hood
 
 ### System Diagnostics
 
