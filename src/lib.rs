@@ -22,5 +22,8 @@ pub mod setup;
 // Configuration module
 pub mod config;
 
+// Logging module
+pub mod logging;
+
 // Re-export CLI module for internal use
 pub mod cli;

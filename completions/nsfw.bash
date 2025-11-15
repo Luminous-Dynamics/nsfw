@@ -19,7 +19,7 @@ _nsfw_completions() {
     local config_keys="cache_ttl_days default_wrapper_type auto_update_channels install_location verbose_output disable_colors parallel_jobs max_cache_size_mb"
 
     # Global options
-    local global_opts="--help --version --verbose"
+    local global_opts="--help --version --verbose --log-file"
 
     # Get the command (first non-option argument)
     local command=""

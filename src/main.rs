@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
-use log::{info, error};
 
 // Use the library modules
 use nsfw::cli;
+use nsfw::config::Config;
+use nsfw::logging;
 
 #[derive(Parser)]
 #[command(name = "nsfw")]
@@ -14,9 +15,13 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    /// Enable verbose logging
+    /// Enable verbose logging (DEBUG level)
     #[arg(short, long, global = true)]
     verbose: bool,
+
+    /// Enable logging to file (~/.nsfw/logs/nsfw.log)
+    #[arg(long, global = true)]
+    log_file: bool,
 }
 
 #[derive(Subcommand)]
@@ -215,18 +220,24 @@ fn main() {
     // Parse CLI arguments
     let cli = Cli::parse();
 
-    // Initialize logging
-    if cli.verbose {
-        env_logger::Builder::from_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .init();
-    } else {
-        env_logger::Builder::from_default_env()
-            .filter_level(log::LevelFilter::Info)
-            .init();
-    }
+    // Load user configuration to get disable_colors setting
+    let config = Config::load().unwrap_or_default();
 
-    info!("NSFW v0.3.0 starting...");
+    // Initialize custom logging system
+    let log_config = logging::create_config(
+        cli.verbose || config.verbose_output,
+        cli.log_file,
+        config.disable_colors,
+    );
+    logging::init(log_config);
+
+    // Log startup message
+    if cli.verbose || config.verbose_output {
+        logging::debug("NSFW v0.3.0 starting...");
+        logging::debug("Verbose mode: enabled");
+        logging::debug(&format!("Log to file: {}", cli.log_file));
+        logging::debug(&format!("Disable colors: {}", config.disable_colors));
+    }
 
     // Execute command
     let result = match cli.command {
@@ -290,7 +301,7 @@ fn main() {
 
     // Handle errors
     if let Err(e) = result {
-        error!("Command failed: {}", e);
+        logging::error(&format!("Command failed: {}", e));
         std::process::exit(1);
     }
 }

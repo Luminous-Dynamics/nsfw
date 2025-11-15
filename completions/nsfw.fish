@@ -6,7 +6,8 @@ complete -c nsfw -e
 
 # Global options
 complete -c nsfw -s h -l help -d 'Show help information'
-complete -c nsfw -s v -l verbose -d 'Enable verbose logging'
+complete -c nsfw -s v -l verbose -d 'Enable verbose logging (DEBUG level)'
+complete -c nsfw -l log-file -d 'Enable logging to file (~/.nsfw/logs/nsfw.log)'
 complete -c nsfw -l version -d 'Show version information'
 
 # Main commands

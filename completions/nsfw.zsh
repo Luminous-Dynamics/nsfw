@@ -9,7 +9,8 @@ _nsfw() {
     # Main command completion
     _arguments -C \
         '(-h --help)'{-h,--help}'[Show help information]' \
-        '(-v --verbose)'{-v,--verbose}'[Enable verbose logging]' \
+        '(-v --verbose)'{-v,--verbose}'[Enable verbose logging (DEBUG level)]' \
+        '--log-file[Enable logging to file (~/.nsfw/logs/nsfw.log)]' \
         '--version[Show version information]' \
         '1: :_nsfw_commands' \
         '*::arg:->args'
