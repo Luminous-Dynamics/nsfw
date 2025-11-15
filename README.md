@@ -3,7 +3,8 @@
 **N**ix **S**ubsystem **F**or **W**indows - Natural language Nix package management for Windows via WSL2.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-136%20passing-brightgreen.svg)](#testing)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
+[![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#building)
 
 ## What is NSFW?
@@ -26,6 +27,9 @@
 - **Lightning Fast**: SQLite cache for instant searches (500-1000x speedup!)
 - **Smart Setup**: Automated WSL2/Nix detection and configuration wizard
 - **Beautiful UI**: Colored output, progress indicators, interactive prompts
+- **Tab Completions**: PowerShell autocomplete for commands and packages
+- **Package Info**: Detailed metadata (license, homepage, maintainers)
+- **Auto Updates**: Keep your package database fresh
 
 ## Prerequisites
 
@@ -97,8 +101,17 @@ nsfw install firefox
 # List installed packages
 nsfw list
 
+# Get package information
+nsfw info firefox
+
+# Update package database
+nsfw update
+
 # Remove a package
 nsfw remove firefox
+
+# Install shell completions (Tab autocomplete)
+nsfw completion powershell
 
 # Get help
 nsfw --help
@@ -210,6 +223,66 @@ nsfw remove firefox --yes
 # Alias: uninstall
 nsfw uninstall python3
 ```
+
+### Package Information
+
+Get detailed metadata about any package:
+
+```powershell
+# View complete package information
+nsfw info firefox
+
+# Shows:
+# • Package name and version
+# • Full description
+# • Homepage URL
+# • License information
+# • Available outputs (bin, dev, doc, etc.)
+# • Package maintainers
+# • Supported platforms
+```
+
+### Update Package Database
+
+Keep your package information fresh:
+
+```powershell
+# Update Nix channels to latest
+nsfw update
+
+# This will:
+# • Download latest nixpkgs channel
+# • Refresh package metadata
+# • Rebuild package cache (automatic)
+# • Show progress and status
+
+# Recommended: Run monthly for latest packages
+```
+
+### Shell Completions (Tab Autocomplete)
+
+Install intelligent tab completion for PowerShell:
+
+```powershell
+# Install PowerShell completions
+nsfw completion powershell
+
+# After installation (restart PowerShell or run):
+. $PROFILE
+
+# Now use Tab to autocomplete:
+nsfw [Tab]              # Shows all commands
+nsfw install [Tab]      # Shows package suggestions
+nsfw search --[Tab]     # Shows available options
+nsfw remove [Tab]       # Shows installed packages
+```
+
+**Completion Features:**
+- ✅ All commands and subcommands
+- ✅ Package names (from installed packages)
+- ✅ All command-line options and flags
+- ✅ Context-aware suggestions
+- ✅ Helpful descriptions for each option
 
 ### Generate Wrapper Scripts
 

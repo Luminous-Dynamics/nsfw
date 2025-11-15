@@ -99,6 +99,13 @@ enum Commands {
         /// Package path
         package_path: String,
     },
+
+    /// Install shell completions
+    Completion {
+        /// Shell type (powershell, bash, zsh, fish)
+        #[arg(default_value = "powershell")]
+        shell: String,
+    },
 }
 
 fn main() {
@@ -143,6 +150,9 @@ fn main() {
         }
         Commands::GenerateWrapper { package, package_path } => {
             cli::commands::generate_wrapper(&package, &package_path)
+        }
+        Commands::Completion { shell } => {
+            cli::commands::install_completion(&shell)
         }
     };
 

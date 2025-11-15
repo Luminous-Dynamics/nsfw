@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::path::PathBuf;
+use colored::Colorize;
 
 use crate::nix_ops::{BridgedNixExecutor, NixError, types::SearchResult};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
@@ -462,4 +463,139 @@ pub fn setup(auto_yes: bool, interactive: bool) -> Result<()> {
 
     let wizard = SetupWizard::new(auto_yes, interactive);
     wizard.run()
+}
+
+pub fn install_completion(shell: &str) -> Result<()> {
+    eprintln!("{}", OutputFormatter::format_section("Installing Shell Completions"));
+
+    match shell.to_lowercase().as_str() {
+        "powershell" | "pwsh" => install_powershell_completion(),
+        "bash" => {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Warning,
+                "Bash completions are not yet implemented"
+            ));
+            eprintln!("PowerShell is currently the only supported shell for completions.");
+            eprintln!("Run: nsfw completion powershell");
+            Ok(())
+        }
+        "zsh" => {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Warning,
+                "Zsh completions are not yet implemented"
+            ));
+            eprintln!("PowerShell is currently the only supported shell for completions.");
+            eprintln!("Run: nsfw completion powershell");
+            Ok(())
+        }
+        "fish" => {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Warning,
+                "Fish completions are not yet implemented"
+            ));
+            eprintln!("PowerShell is currently the only supported shell for completions.");
+            eprintln!("Run: nsfw completion powershell");
+            Ok(())
+        }
+        _ => {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Error,
+                &format!("Unknown shell: '{}'", shell)
+            ));
+            eprintln!("Supported shells: powershell, bash, zsh, fish");
+            Ok(())
+        }
+    }
+}
+
+fn install_powershell_completion() -> Result<()> {
+    use std::fs;
+    use std::env;
+
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "📦 Installing PowerShell completions..."
+    ));
+    eprintln!();
+
+    // Get the PowerShell profile directory
+    let profile_dir = if let Ok(home) = env::var("USERPROFILE") {
+        PathBuf::from(home).join("Documents").join("PowerShell")
+    } else {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Error,
+            "Could not determine PowerShell profile directory"
+        ));
+        return Ok(());
+    };
+
+    // Create completions directory
+    let completions_dir = profile_dir.join("Completions");
+    if !completions_dir.exists() {
+        fs::create_dir_all(&completions_dir)?;
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Success,
+            &format!("✓ Created directory: {}", completions_dir.display())
+        ));
+    }
+
+    // Write the PowerShell completion script
+    let completion_script = include_str!("../../completions/nsfw.ps1");
+    let target_path = completions_dir.join("nsfw.ps1");
+
+    fs::write(&target_path, completion_script)?;
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Success,
+        &format!("✓ Installed completion script to: {}", target_path.display())
+    ));
+
+    // Check PowerShell profile
+    let profile_path = profile_dir.join("Microsoft.PowerShell_profile.ps1");
+    let import_line = format!("Import-Module \"{}\"", target_path.display());
+
+    let mut needs_profile_update = true;
+    if profile_path.exists() {
+        let profile_content = fs::read_to_string(&profile_path)?;
+        if profile_content.contains("Import-Module") && profile_content.contains("nsfw.ps1") {
+            needs_profile_update = false;
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Info,
+                "✓ Already configured in PowerShell profile"
+            ));
+        }
+    }
+
+    if needs_profile_update {
+        // Create or append to profile
+        let profile_addition = format!("\n# NSFW Tab Completions\n{}\n", import_line);
+
+        if profile_path.exists() {
+            let mut profile_content = fs::read_to_string(&profile_path)?;
+            profile_content.push_str(&profile_addition);
+            fs::write(&profile_path, profile_content)?;
+        } else {
+            fs::write(&profile_path, &profile_addition)?;
+        }
+
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Success,
+            "✓ Added import to PowerShell profile"
+        ));
+    }
+
+    eprintln!();
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Success,
+        "🎉 PowerShell completions installed successfully!"
+    ));
+    eprintln!();
+    eprintln!("To activate completions, restart PowerShell or run:");
+    eprintln!("  {}", ". $PROFILE".bright_cyan());
+    eprintln!();
+    eprintln!("Now you can use Tab to autocomplete:");
+    eprintln!("  • Commands: nsfw [Tab]");
+    eprintln!("  • Packages: nsfw install [Tab]");
+    eprintln!("  • Options: nsfw search --[Tab]");
+
+    Ok(())
 }
