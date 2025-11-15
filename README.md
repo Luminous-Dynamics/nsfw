@@ -3,8 +3,8 @@
 **N**ix **S**ubsystem **F**or **W**indows - Natural language Nix package management for Windows via WSL2.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
-[![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen.svg)](#testing)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
+[![Tests](https://img.shields.io/badge/tests-127%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#building)
 
 ## What is NSFW?
@@ -30,6 +30,10 @@
 - **Tab Completions**: PowerShell autocomplete for commands and packages
 - **Package Info**: Detailed metadata (license, homepage, maintainers)
 - **Auto Updates**: Keep your package database fresh
+- **System Diagnostics**: Built-in health checks and troubleshooting (`nsfw doctor`)
+- **Configuration**: Customize behavior via user config file (~/.nswfrc)
+- **Package Management**: Upgrade, export, and import package lists
+- **Enhanced Errors**: Helpful error messages with actionable suggestions
 
 ## Prerequisites
 
@@ -109,6 +113,21 @@ nsfw update
 
 # Remove a package
 nsfw remove firefox
+
+# Upgrade packages to latest versions
+nsfw upgrade              # Upgrade all packages
+nsfw upgrade firefox      # Upgrade specific package
+
+# Export/import package lists (backup & restore)
+nsfw export               # Export to nsfw-packages.json
+nsfw import backup.json   # Restore from backup
+
+# Check system health
+nsfw doctor               # Diagnose configuration issues
+
+# Configure NSFW behavior
+nsfw config show          # View all settings
+nsfw config set cache_ttl_days 14
 
 # Install shell completions (Tab autocomplete)
 nsfw completion powershell
@@ -257,6 +276,146 @@ nsfw update
 # • Show progress and status
 
 # Recommended: Run monthly for latest packages
+```
+
+### Upgrade Packages
+
+Keep your packages up to date:
+
+```powershell
+# Upgrade all installed packages
+nsfw upgrade
+
+# Upgrade a specific package
+nsfw upgrade firefox
+
+# Skip confirmation prompt
+nsfw upgrade --yes
+```
+
+**What happens during upgrade:**
+- Removes old version
+- Installs latest version
+- Shows progress for each package
+- Summary with success/failure counts
+
+### Export & Import Packages
+
+Backup and restore your package lists:
+
+```powershell
+# Export installed packages to JSON (default)
+nsfw export
+
+# Export to custom file with TOML format
+nsfw export --output my-packages.toml --format toml
+
+# Import packages from backup
+nsfw import nsfw-packages.json
+
+# Import with auto-yes (skip confirmations)
+nsfw import backup.json --yes
+```
+
+**Export file includes:**
+- All installed package names and versions
+- Timestamp of export
+- NSFW version used
+- Auto-detected format (JSON or TOML)
+
+**Use cases:**
+- 💾 Regular backups of your environment
+- 🔄 Migrate packages to new machine
+- 👥 Share package lists with team
+- 🎯 Restore after system reset
+
+### System Diagnostics
+
+Check your system health and configuration:
+
+```powershell
+# Run comprehensive system diagnostics
+nsfw doctor
+```
+
+**Checks performed:**
+- ✓ WSL2 availability and version
+- ✓ Nix installation and configuration
+- ✓ Package cache health and age
+- ✓ File permissions
+- ✓ Disk space usage
+- ⚠ Actionable fix suggestions for any issues found
+
+**Sample output:**
+```
+System Diagnostics
+==================
+
+✓ WSL2 is available (version 2.0.0)
+✓ Nix is installed (version 2.18.1)
+⚠ Package cache is 15 days old (recommend rebuild)
+✓ Cache permissions OK
+✓ Disk space OK (45% used)
+
+Issues found: 1
+Checks passed: 4/5
+
+💡 To rebuild cache: nsfw cache rebuild
+```
+
+### Configuration
+
+Customize NSFW behavior via config file:
+
+```powershell
+# View all configuration settings
+nsfw config show
+
+# Get a specific value
+nsfw config get cache_ttl_days
+
+# Set a value
+nsfw config set cache_ttl_days 14
+nsfw config set default_wrapper_type gui
+
+# Reset to defaults
+nsfw config reset
+
+# Show config file location
+nsfw config path
+
+# List all available keys
+nsfw config keys
+```
+
+**Available settings:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `cache_ttl_days` | 7 | Days before cache expires |
+| `default_wrapper_type` | console | Wrapper type (console/gui/vbs) |
+| `auto_update_channels` | false | Auto-update before operations |
+| `install_location` | None | Custom wrapper install path |
+| `verbose_output` | false | Enable verbose logging |
+| `disable_colors` | false | Disable colored output |
+| `parallel_jobs` | 4 | Parallel operations (future) |
+| `max_cache_size_mb` | 100 | Maximum cache size in MB |
+
+**Config file location:** `~/.nswfrc` (TOML format)
+
+### Cache Management
+
+Manage the package cache:
+
+```powershell
+# View cache statistics
+nsfw cache stats
+
+# Clear the cache
+nsfw cache clear
+
+# Rebuild the cache from scratch
+nsfw cache rebuild
 ```
 
 ### Shell Completions (Tab Autocomplete)
@@ -413,16 +572,21 @@ nsfw/
 ├── src/
 │   ├── cli/              # CLI command implementations
 │   ├── nix_ops/          # Nix operations (search, install, etc.)
-│   ├── package_cache/    # SQLite cache system (NEW!)
-│   ├── setup/            # Setup wizard & detection (NEW!)
+│   ├── package_cache/    # SQLite cache system
+│   ├── setup/            # Setup wizard & detection
+│   ├── config/           # Configuration management (NEW in v0.3.0!)
 │   ├── path_translation/ # Windows ↔ WSL2 path conversion
 │   ├── templates/        # Wrapper script generation
 │   ├── wsl2/             # WSL2 bridge layer (UTF-16 support)
+│   ├── cache/            # Search result caching
+│   ├── ui/               # Progress bars, colored output
 │   ├── lib.rs            # Library exports
 │   └── main.rs           # CLI entry point
 ├── tests/
 │   ├── integration_tests.rs  # Integration tests
 │   └── edge_cases.rs         # Edge case tests
+├── completions/
+│   └── nsfw.ps1          # PowerShell completion script
 └── docs/                 # Documentation
 ```
 
@@ -551,14 +715,28 @@ Cache builds automatically after first search. Wait for it to complete in the ba
 
 See [docs/PHASE_2_WINDOWS_VALIDATION.md](docs/PHASE_2_WINDOWS_VALIDATION.md) for complete testing report.
 
-### Phase 3: Advanced Features 📋 (In Progress)
-- Package info command (detailed package information)
-- Update command (manage Nix channels)
+### Phase 3: Advanced Features ✅ (Complete - v0.3.0)
+
+**Major Features:**
+- ✅ **Configuration System** - User preferences via ~/.nswfrc (TOML)
+- ✅ **Package Management** - Upgrade, export, and import commands
+- ✅ **System Diagnostics** - `nsfw doctor` for health checks
+- ✅ **Enhanced Error Handling** - Helpful messages with suggestions
+- ✅ **Package Info** - Detailed metadata (license, homepage, maintainers)
+- ✅ **Update Command** - Manage Nix channels
+- ✅ **Cache Management** - Stats, clear, and rebuild operations
+- ✅ **Tab Completions** - PowerShell autocomplete
+
+**Achievement**: Production-ready v0.3.0 with comprehensive package management
+
+### Phase 4: Advanced UX & Multi-Shell Support 📋 (In Progress)
+- Advanced search filters (category, license, description)
+- Fuzzy matching with "Did you mean?" suggestions
+- Shell completions for Bash, Zsh, Fish
+- Dry-run mode for safe operation previews
+- Enhanced verbose mode with debugging
 - Package dependency visualization
-- Interactive package selection
-- Shell completions (PowerShell, Bash)
 - Auto-update notifications
-- Configuration profiles
 
 ## FAQ
 
@@ -625,26 +803,28 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Project Status
 
-- **Current Phase**: 2 Complete ✅ - Ready for v0.2.0-rc release
-- **Phase 1**: ✅ Complete (136 tests passing)
-- **Phase 2**: ✅ Complete (Windows validation on real hardware)
-- **Stability**: Release Candidate
+- **Current Version**: v0.3.0 ✅
+- **Phase 1**: ✅ Complete (Foundation & Core)
+- **Phase 2**: ✅ Complete (Windows Validation & UX)
+- **Phase 3**: ✅ Complete (Advanced Features & Configuration)
+- **Stability**: Stable
 - **Production Ready**: Yes - tested on Windows 11 with WSL2
+- **Tests**: 127 passing, 0 warnings
 - **Active Development**: Yes
-- **Next Milestone**: v0.2.0-rc tag and initial release
+- **Next Milestone**: v0.4.0 (Multi-shell support & Advanced search)
 
 ### Recent Updates
+- **2025-11-15**: ⚙️ **v0.3.0 Released** - Configuration system & package management tools
+- **2025-11-15**: 📦 **Package management** - Upgrade, export, and import commands
+- **2025-11-15**: 🩺 **System diagnostics** - `nsfw doctor` for health checks
+- **2025-11-15**: 🔧 **Configuration** - User preferences via ~/.nswfrc
+- **2025-11-15**: 💡 **Enhanced errors** - Helpful messages with suggestions and help URLs
 - **2025-10-03**: 🚀 **Phase 2 UX Complete** - SQLite cache + setup wizard released
 - **2025-10-03**: ⚡ **Instant search** - 500-1000x speedup with local SQLite cache
 - **2025-10-03**: 🧙 **Setup wizard** - Automated WSL2/Nix detection and configuration
-- **2025-10-03**: 🔤 **UTF-16 fix** - PowerShell encoding properly handled on Windows
 - **2025-10-02**: 🎉 **Phase 2 COMPLETE** - Windows binary validated on real Windows 11 hardware
-- **2025-10-02**: 🐛 **6 critical bugs fixed** - All discovered and resolved before any users affected
-- **2025-10-02**: 📚 **Complete documentation** - Setup guides and validation reports
-- **2025-10-01**: 🤖 **Automated setup script** - One-command Nix configuration for WSL2
 - **2025-09-30**: 🚀 **GitHub repo created** at https://github.com/Luminous-Dynamics/nsfw
-- **2025-09-30**: 🎨 **Beautiful colored UI** with progress indicators and spinners
-- **2025-09-30**: ✅ **All 136 tests passing** with 0 compiler warnings
+- **2025-09-30**: ✅ **All tests passing** with 0 compiler warnings
 
 ---
 
