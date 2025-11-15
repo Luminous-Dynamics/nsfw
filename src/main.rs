@@ -7,7 +7,7 @@ use nsfw::cli;
 #[derive(Parser)]
 #[command(name = "nsfw")]
 #[command(author = "Luminous Dynamics")]
-#[command(version = "0.1.0")]
+#[command(version = "0.2.0")]
 #[command(about = "Nix Subsystem for Windows - Natural language Nix package management", long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
@@ -116,7 +116,7 @@ fn main() {
             .init();
     }
 
-    info!("NSFW v0.1.0 starting...");
+    info!("NSFW v0.2.0 starting...");
 
     // Execute command
     let result = match cli.command {

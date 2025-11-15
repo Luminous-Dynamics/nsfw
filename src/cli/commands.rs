@@ -328,15 +328,95 @@ pub fn list(detailed: bool, format: &str) -> Result<()> {
 }
 
 pub fn info(package: &str) -> Result<()> {
-    println!("ℹ️  Package info for '{}'", package);
-    println!("⚠️  Info not yet implemented (Phase 1 Day 3-4)");
-    Ok(())
+    eprintln!("{}", OutputFormatter::format_section(&format!("Package Information: '{}'", package)));
+
+    // Create bridged executor
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Check Nix availability
+    progress.set_message("Checking Nix availability...");
+    if let Err(e) = executor.check_nix_available() {
+        progress.finish_and_clear();
+        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        return Err(e.into());
+    }
+
+    // Get package info
+    progress.set_message(&format!("Fetching info for '{}'...", package));
+    match executor.info(package) {
+        Ok(pkg_info) => {
+            progress.finish_and_clear();
+            print!("{}", OutputFormatter::format_package_info(&pkg_info));
+            Ok(())
+        }
+        Err(NixError::PackageNotFound(_)) => {
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                &format!("Package '{}' not found", package),
+                "Try searching for similar packages with 'nsfw search'"
+            ));
+            Err(NixError::PackageNotFound(package.to_string()).into())
+        }
+        Err(e) => {
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &format!("Failed to get package info: {}", e)));
+            Err(e.into())
+        }
+    }
 }
 
 pub fn update() -> Result<()> {
-    println!("🔄 Updating package database");
-    println!("⚠️  Update not yet implemented (Phase 1 Day 3-4)");
-    Ok(())
+    eprintln!("{}", OutputFormatter::format_section("Updating Package Database"));
+
+    // Create bridged executor
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Check Nix availability
+    progress.set_message("Checking Nix availability...");
+    if let Err(e) = executor.check_nix_available() {
+        progress.finish_and_clear();
+        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        return Err(e.into());
+    }
+
+    // Update channels
+    progress.set_message("Updating Nix channels... (this may take a few minutes)");
+    match executor.update_channels() {
+        Ok(()) => {
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Success, "Channels updated successfully!"));
+
+            // Clear the package cache so it rebuilds with new packages
+            let pkg_cache = PackageCache::new()?;
+            pkg_cache.initialize()?;
+
+            if !pkg_cache.is_empty() {
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Package cache will be rebuilt on next search"));
+                // Optional: trigger cache rebuild in background
+                std::thread::spawn(move || {
+                    let bridge = RealWSL2Bridge::new();
+                    let builder = CacheBuilder::new(pkg_cache, bridge);
+                    if let Err(e) = builder.build_from_nix_env() {
+                        log::warn!("Background cache rebuild failed: {}", e);
+                    }
+                });
+            }
+
+            Ok(())
+        }
+        Err(e) => {
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                &format!("Channel update failed: {}", e),
+                "Ensure you have internet connectivity and Nix is properly configured"
+            ));
+            Err(e.into())
+        }
+    }
 }
 
 pub fn generate_wrapper(package: &str, package_path: &str) -> Result<()> {

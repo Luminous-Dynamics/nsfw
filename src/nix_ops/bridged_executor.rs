@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::errors::NixError;
-use super::types::{SearchResult, InstalledPackage};
+use super::types::{SearchResult, InstalledPackage, PackageInfo};
 use crate::wsl2::WSL2Bridge;
 
 /// Nix executor that uses WSL2Bridge for all operations
@@ -244,6 +244,111 @@ impl<B: WSL2Bridge> BridgedNixExecutor<B> {
         }
 
         "unknown".to_string()
+    }
+
+    /// Get detailed package information
+    pub fn info(&self, package: &str) -> Result<PackageInfo, NixError> {
+        // Check WSL2 available
+        if !self.bridge.is_available() {
+            return Err(NixError::WSL2NotAvailable);
+        }
+
+        // Execute search for exact package match
+        let search_pattern = format!("^{}$", package);
+        let output = self.bridge
+            .execute("nix", &["search", "nixpkgs", &search_pattern, "--json"])
+            .map_err(|e| NixError::CommandFailed(e.to_string()))?;
+
+        if !output.is_success() {
+            return Err(NixError::PackageNotFound(package.to_string()));
+        }
+
+        // Parse JSON results
+        let json: Value = serde_json::from_str(&output.stdout)
+            .map_err(NixError::ParseError)?;
+
+        // Get the first (and should be only) result
+        if let Some((_, pkg_data)) = json.as_object().and_then(|obj| obj.iter().next()) {
+            let pname = pkg_data.get("pname")
+                .and_then(|v| v.as_str())
+                .unwrap_or(package)
+                .to_string();
+
+            let version = pkg_data.get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            let description = pkg_data.get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let homepage = pkg_data.get("homepage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let license = pkg_data.get("license")
+                .and_then(|v| v.as_str())
+                .or_else(|| pkg_data.get("license").and_then(|v| v.get("shortName")).and_then(|v| v.as_str()))
+                .map(|s| s.to_string());
+
+            let outputs = pkg_data.get("outputs")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_else(|| vec!["out".to_string()]);
+
+            let maintainers = pkg_data.get("maintainers")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.get("name").and_then(|n| n.as_str()))
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_default();
+
+            let platforms = pkg_data.get("platforms")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_default();
+
+            Ok(PackageInfo {
+                pname,
+                version,
+                description,
+                homepage,
+                license,
+                outputs,
+                maintainers,
+                platforms,
+            })
+        } else {
+            Err(NixError::PackageNotFound(package.to_string()))
+        }
+    }
+
+    /// Update Nix channels
+    pub fn update_channels(&self) -> Result<(), NixError> {
+        // Check WSL2 available
+        if !self.bridge.is_available() {
+            return Err(NixError::WSL2NotAvailable);
+        }
+
+        // Execute nix-channel --update via bridge
+        let output = self.bridge
+            .execute("nix-channel", &["--update"])
+            .map_err(|e| NixError::CommandFailed(e.to_string()))?;
+
+        if !output.is_success() {
+            return Err(NixError::CommandFailed(output.stderr));
+        }
+
+        Ok(())
     }
 }
 

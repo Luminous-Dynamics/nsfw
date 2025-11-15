@@ -1,6 +1,6 @@
 [package]
 name = "nsfw"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Luminous Dynamics <tristan.stoltz@evolvingresonantcocreationism.com>"]
 description = "Nix Subsystem for Windows - Natural language Nix package management"

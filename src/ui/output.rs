@@ -1,6 +1,6 @@
 /// Output formatting utilities
 use colored::*;
-use crate::nix_ops::types::{SearchResult, InstalledPackage};
+use crate::nix_ops::types::{SearchResult, InstalledPackage, PackageInfo};
 
 /// Message type for colored output
 pub enum MessageType {
@@ -122,6 +122,68 @@ impl OutputFormatter {
     /// Format a section header
     pub fn format_section(title: &str) -> String {
         format!("\n{}\n{}", title.bright_cyan().bold(), "─".repeat(title.len()).bright_black())
+    }
+
+    /// Format detailed package information
+    pub fn format_package_info(info: &PackageInfo) -> String {
+        let mut output = String::new();
+
+        // Package name and version
+        output.push_str(&format!("{} {}\n",
+            info.pname.bright_green().bold(),
+            format!("v{}", info.version).yellow()
+        ));
+        output.push_str(&format!("{}\n\n", "─".repeat(60).bright_black()));
+
+        // Description
+        if !info.description.is_empty() {
+            output.push_str(&format!("{}: {}\n\n",
+                "Description".bright_black(),
+                info.description.bright_white()
+            ));
+        }
+
+        // Homepage
+        if let Some(homepage) = &info.homepage {
+            output.push_str(&format!("{}: {}\n",
+                "Homepage".bright_black(),
+                homepage.cyan()
+            ));
+        }
+
+        // License
+        if let Some(license) = &info.license {
+            output.push_str(&format!("{}: {}\n",
+                "License".bright_black(),
+                license.bright_white()
+            ));
+        }
+
+        // Outputs
+        if !info.outputs.is_empty() {
+            output.push_str(&format!("{}: {}\n",
+                "Outputs".bright_black(),
+                info.outputs.join(", ").bright_white()
+            ));
+        }
+
+        // Maintainers
+        if !info.maintainers.is_empty() {
+            output.push_str(&format!("{}: {}\n",
+                "Maintainers".bright_black(),
+                info.maintainers.join(", ").bright_white()
+            ));
+        }
+
+        // Platforms
+        if !info.platforms.is_empty() {
+            output.push_str(&format!("{}: {}\n",
+                "Platforms".bright_black(),
+                info.platforms.join(", ").bright_white()
+            ));
+        }
+
+        output
     }
 }
 

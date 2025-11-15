@@ -4,7 +4,7 @@ use log::{debug, info, warn};
 use serde_json::Value;
 
 use crate::nix_ops::errors::{NixError, Result};
-use crate::nix_ops::types::{SearchResult, InstalledPackage};
+use crate::nix_ops::types::{SearchResult, InstalledPackage, PackageInfo};
 
 /// Executes Nix operations (search, install, remove, list)
 pub struct NixExecutor {
@@ -380,6 +380,151 @@ impl NixExecutor {
         }
 
         info!("Successfully removed: {}", package);
+        Ok(())
+    }
+
+    /// Get detailed information about a package
+    ///
+    /// # Arguments
+    /// * `package` - Package name to get info for
+    ///
+    /// # Returns
+    /// Detailed package information
+    ///
+    /// # Example
+    /// ```
+    /// let executor = NixExecutor::new();
+    /// let info = executor.info("firefox")?;
+    /// println!("Package: {} v{}", info.pname, info.version);
+    /// ```
+    pub fn info(&self, package: &str) -> Result<PackageInfo> {
+        info!("Getting info for package: {}", package);
+
+        // Use nix search with --json to get detailed package information
+        // Search for exact package name
+        let mut cmd = Command::new("nix");
+        cmd.arg("--extra-experimental-features")
+            .arg("nix-command flakes")
+            .arg("search")
+            .arg("nixpkgs")
+            .arg(format!("^{}$", package))  // Exact match
+            .arg("--json");
+
+        debug!("Executing: {:?}", cmd);
+
+        let output = cmd.output()
+            .map_err(NixError::IoError)?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            warn!("Info search failed: {}", stderr);
+            return Err(NixError::PackageNotFound(package.to_string()));
+        }
+
+        // Parse JSON output
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.trim().is_empty() {
+            return Err(NixError::PackageNotFound(package.to_string()));
+        }
+
+        let json: HashMap<String, Value> = serde_json::from_str(&stdout)
+            .map_err(NixError::ParseError)?;
+
+        // Get the first (and should be only) result
+        if let Some((_attr_path, pkg_data)) = json.iter().next() {
+            let pname = pkg_data.get("pname")
+                .and_then(|v| v.as_str())
+                .unwrap_or(package)
+                .to_string();
+
+            let version = pkg_data.get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            let description = pkg_data.get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            // Try to get additional metadata (may not be in search results)
+            let homepage = pkg_data.get("homepage")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let license = pkg_data.get("license")
+                .and_then(|v| v.as_str())
+                .or_else(|| pkg_data.get("license").and_then(|v| v.get("shortName")).and_then(|v| v.as_str()))
+                .map(|s| s.to_string());
+
+            let outputs = pkg_data.get("outputs")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_else(|| vec!["out".to_string()]);
+
+            let maintainers = pkg_data.get("maintainers")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.get("name").and_then(|n| n.as_str()))
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_default();
+
+            let platforms = pkg_data.get("platforms")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect())
+                .unwrap_or_default();
+
+            Ok(PackageInfo {
+                pname,
+                version,
+                description,
+                homepage,
+                license,
+                outputs,
+                maintainers,
+                platforms,
+            })
+        } else {
+            Err(NixError::PackageNotFound(package.to_string()))
+        }
+    }
+
+    /// Update Nix channels
+    ///
+    /// # Returns
+    /// Ok if channels were updated successfully
+    ///
+    /// # Example
+    /// ```
+    /// let executor = NixExecutor::new();
+    /// executor.update_channels()?;
+    /// ```
+    pub fn update_channels(&self) -> Result<()> {
+        info!("Updating Nix channels");
+
+        // Run nix-channel --update
+        let mut cmd = Command::new("nix-channel");
+        cmd.arg("--update");
+
+        debug!("Executing: {:?}", cmd);
+
+        let output = cmd.output()
+            .map_err(NixError::IoError)?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            warn!("Channel update failed: {}", stderr);
+            return Err(NixError::CommandFailed(stderr.to_string()));
+        }
+
+        info!("Channels updated successfully");
         Ok(())
     }
 }
