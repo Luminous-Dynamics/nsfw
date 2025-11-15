@@ -30,6 +30,7 @@ pub struct CachedPackage {
 }
 
 /// Package cache manager
+#[derive(Clone)]
 pub struct PackageCache {
     db_path: PathBuf,
 }
@@ -231,8 +232,64 @@ impl PackageCache {
         conn.execute("DELETE FROM packages", [])
             .context("Failed to clear cache")?;
 
+        conn.execute("DELETE FROM metadata", [])
+            .context("Failed to clear metadata")?;
+
         info!("Package cache cleared");
         Ok(())
+    }
+
+    /// Get cache database file size in bytes
+    pub fn get_size(&self) -> Result<u64> {
+        let metadata = std::fs::metadata(&self.db_path)
+            .context("Failed to get database file metadata")?;
+        Ok(metadata.len())
+    }
+
+    /// Get cache database path
+    pub fn get_path(&self) -> &PathBuf {
+        &self.db_path
+    }
+
+    /// Get most popular packages (by search count)
+    pub fn get_popular(&self, limit: usize) -> Result<Vec<CachedPackage>> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        let mut stmt = conn.prepare(
+            "SELECT name, version, description, attr_path, last_updated, search_count
+             FROM packages
+             WHERE search_count > 0
+             ORDER BY search_count DESC
+             LIMIT ?1"
+        ).context("Failed to prepare popular packages query")?;
+
+        let packages = stmt.query_map(params![limit as i32], |row| {
+            Ok(CachedPackage {
+                name: row.get(0)?,
+                version: row.get(1)?,
+                description: row.get(2)?,
+                attr_path: row.get(3)?,
+                last_updated: row.get(4)?,
+                search_count: row.get(5)?,
+            })
+        }).context("Failed to execute query")?
+          .collect::<SqlResult<Vec<_>>>()
+          .context("Failed to collect results")?;
+
+        Ok(packages)
+    }
+
+    /// Get cache age in seconds (time since last update)
+    pub fn get_age_seconds(&self) -> Result<Option<i64>> {
+        let stats = self.stats()?;
+
+        if let Some(last_updated) = stats.last_updated {
+            let now = chrono::Utc::now().timestamp();
+            Ok(Some(now - last_updated))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -243,7 +300,7 @@ impl Default for PackageCache {
 }
 
 /// Cache statistics
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CacheStats {
     pub total_packages: i32,
     pub last_updated: Option<i64>,

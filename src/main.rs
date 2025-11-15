@@ -100,12 +100,30 @@ enum Commands {
         package_path: String,
     },
 
+    /// Manage package cache
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+
     /// Install shell completions
     Completion {
         /// Shell type (powershell, bash, zsh, fish)
         #[arg(default_value = "powershell")]
         shell: String,
     },
+}
+
+#[derive(Subcommand)]
+enum CacheAction {
+    /// Show cache statistics
+    Stats,
+
+    /// Clear the package cache
+    Clear,
+
+    /// Rebuild the package cache
+    Rebuild,
 }
 
 fn main() {
@@ -150,6 +168,13 @@ fn main() {
         }
         Commands::GenerateWrapper { package, package_path } => {
             cli::commands::generate_wrapper(&package, &package_path)
+        }
+        Commands::Cache { action } => {
+            match action {
+                CacheAction::Stats => cli::commands::cache_stats(),
+                CacheAction::Clear => cli::commands::cache_clear(),
+                CacheAction::Rebuild => cli::commands::cache_rebuild(),
+            }
         }
         Commands::Completion { shell } => {
             cli::commands::install_completion(&shell)

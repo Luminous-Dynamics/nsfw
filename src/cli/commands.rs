@@ -599,3 +599,175 @@ fn install_powershell_completion() -> Result<()> {
 
     Ok(())
 }
+
+pub fn cache_stats() -> Result<()> {
+    eprintln!("{}", OutputFormatter::format_section("Package Cache Statistics"));
+
+    let cache = PackageCache::new()?;
+    cache.initialize()?;
+
+    // Get cache statistics
+    let stats = cache.stats()?;
+    let size = cache.get_size().unwrap_or(0);
+    let age = cache.get_age_seconds()?;
+
+    // Format size nicely
+    let size_mb = size as f64 / 1_048_576.0;
+    let size_str = if size_mb < 1.0 {
+        format!("{:.2} KB", size as f64 / 1024.0)
+    } else {
+        format!("{:.2} MB", size_mb)
+    };
+
+    // Format age nicely
+    let age_str = if let Some(age_secs) = age {
+        if age_secs < 60 {
+            format!("{} seconds ago", age_secs)
+        } else if age_secs < 3600 {
+            format!("{} minutes ago", age_secs / 60)
+        } else if age_secs < 86400 {
+            format!("{} hours ago", age_secs / 3600)
+        } else {
+            format!("{} days ago", age_secs / 86400)
+        }
+    } else {
+        "Never".to_string()
+    };
+
+    eprintln!("\n  {}: {}", "Total Packages".bright_white(), stats.total_packages.to_string().bright_cyan());
+    eprintln!("  {}: {}", "Database Size".bright_white(), size_str.bright_cyan());
+    eprintln!("  {}: {}", "Last Updated".bright_white(), age_str.bright_cyan());
+    eprintln!("  {}: {}", "Cache Location".bright_white(), cache.get_path().display().to_string().bright_black());
+
+    // Show popular packages if any
+    if stats.total_packages > 0 {
+        eprintln!();
+        if let Ok(popular) = cache.get_popular(5) {
+            if !popular.is_empty() {
+                eprintln!("\n{}", "  Most Searched Packages:".bright_white());
+                for (i, pkg) in popular.iter().enumerate() {
+                    eprintln!("    {}. {} (searched {} times)",
+                        (i + 1).to_string().bright_black(),
+                        pkg.name.bright_green(),
+                        pkg.search_count.to_string().bright_cyan()
+                    );
+                }
+            }
+        }
+    }
+
+    eprintln!();
+
+    if stats.total_packages == 0 {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Info,
+            "Cache is empty. Run 'nsfw search <query>' to build it."
+        ));
+    } else if let Some(age_secs) = age {
+        if age_secs > 2592000 { // 30 days
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Warning,
+                "Cache is over 30 days old. Consider running 'nsfw update'."
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn cache_clear() -> Result<()> {
+    eprintln!("{}", OutputFormatter::format_section("Clear Package Cache"));
+
+    let cache = PackageCache::new()?;
+    cache.initialize()?;
+
+    // Get stats before clearing
+    let stats_before = cache.stats()?;
+
+    if stats_before.total_packages == 0 {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Info,
+            "Cache is already empty."
+        ));
+        return Ok(());
+    }
+
+    // Confirm with user
+    use dialoguer::Confirm;
+    let confirmed = Confirm::new()
+        .with_prompt(format!("Clear {} cached packages?", stats_before.total_packages))
+        .default(false)
+        .interact()?;
+
+    if !confirmed {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Info,
+            "Cache clear cancelled."
+        ));
+        return Ok(());
+    }
+
+    // Clear the cache
+    let progress = ProgressIndicator::spinner("Clearing cache...");
+    cache.clear()?;
+    progress.finish_and_clear();
+
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Success,
+        &format!("✓ Cleared {} packages from cache", stats_before.total_packages)
+    ));
+
+    eprintln!("\nThe cache will be rebuilt on your next search.");
+
+    Ok(())
+}
+
+pub fn cache_rebuild() -> Result<()> {
+    eprintln!("{}", OutputFormatter::format_section("Rebuild Package Cache"));
+
+    let cache = PackageCache::new()?;
+    cache.initialize()?;
+
+    // Clear existing cache
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "Clearing existing cache..."
+    ));
+    cache.clear()?;
+
+    // Rebuild cache
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "Rebuilding cache from nixpkgs..."
+    ));
+    eprintln!();
+    eprintln!("  This may take 2-10 minutes depending on your system.");
+    eprintln!("  Future searches will be instant!");
+    eprintln!();
+
+    let progress = ProgressIndicator::spinner("Building cache from Nix packages...");
+
+    let bridge = RealWSL2Bridge::new();
+    let builder = CacheBuilder::new(cache.clone(), bridge);
+
+    match builder.build_from_nix_env() {
+        Ok(count) => {
+            progress.finish_and_clear();
+
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Success,
+                &format!("✓ Cache rebuilt successfully with {} packages", count)
+            ));
+
+            Ok(())
+        }
+        Err(e) => {
+            progress.finish_and_clear();
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Error,
+                &format!("Cache rebuild failed: {}", e)
+            ));
+            Err(e)
+        }
+    }
+}
