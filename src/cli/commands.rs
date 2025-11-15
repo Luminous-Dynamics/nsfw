@@ -504,33 +504,9 @@ pub fn install_completion(shell: &str) -> Result<()> {
 
     match shell.to_lowercase().as_str() {
         "powershell" | "pwsh" => install_powershell_completion(),
-        "bash" => {
-            eprintln!("{}", OutputFormatter::format_message(
-                MessageType::Warning,
-                "Bash completions are not yet implemented"
-            ));
-            eprintln!("PowerShell is currently the only supported shell for completions.");
-            eprintln!("Run: nsfw completion powershell");
-            Ok(())
-        }
-        "zsh" => {
-            eprintln!("{}", OutputFormatter::format_message(
-                MessageType::Warning,
-                "Zsh completions are not yet implemented"
-            ));
-            eprintln!("PowerShell is currently the only supported shell for completions.");
-            eprintln!("Run: nsfw completion powershell");
-            Ok(())
-        }
-        "fish" => {
-            eprintln!("{}", OutputFormatter::format_message(
-                MessageType::Warning,
-                "Fish completions are not yet implemented"
-            ));
-            eprintln!("PowerShell is currently the only supported shell for completions.");
-            eprintln!("Run: nsfw completion powershell");
-            Ok(())
-        }
+        "bash" => install_bash_completion(),
+        "zsh" => install_zsh_completion(),
+        "fish" => install_fish_completion(),
         _ => {
             eprintln!("{}", OutputFormatter::format_message(
                 MessageType::Error,
@@ -631,6 +607,166 @@ fn install_powershell_completion() -> Result<()> {
     eprintln!("  • Packages: nsfw install [Tab]");
     eprintln!("  • Options: nsfw search --[Tab]");
 
+    Ok(())
+}
+
+fn install_bash_completion() -> Result<()> {
+    use std::fs;
+
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "📦 Installing Bash completions..."
+    ));
+    eprintln!();
+
+    let completion_script = include_str!("../../completions/nsfw.bash");
+
+    // Try system-wide locations first, then user location
+    let mut target_paths = vec![
+        PathBuf::from("/etc/bash_completion.d/nsfw"),
+        PathBuf::from("/usr/local/share/bash-completion/completions/nsfw"),
+    ];
+
+    if let Some(home) = dirs::home_dir() {
+        target_paths.push(home.join(".local/share/bash-completion/completions/nsfw"));
+    }
+
+    let mut installed = false;
+    for target_path in &target_paths {
+        if let Some(parent) = target_path.parent() {
+            if (parent.exists() || fs::create_dir_all(parent).is_ok())
+                && fs::write(target_path, completion_script).is_ok()
+            {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Success,
+                    &format!("✓ Installed completion script to: {}", target_path.display())
+                ));
+                installed = true;
+                break;
+            }
+        }
+    }
+
+    if !installed {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Warning,
+            "Could not install to system locations. Manual installation required."
+        ));
+        eprintln!();
+        eprintln!("{}", "To install manually:".bright_cyan());
+        eprintln!("1. Save the completion script from completions/nsfw.bash");
+        eprintln!("2. Copy to one of these locations:");
+        eprintln!("   - /etc/bash_completion.d/nsfw");
+        eprintln!("   - /usr/local/share/bash-completion/completions/nsfw");
+        eprintln!("   - ~/.local/share/bash-completion/completions/nsfw");
+        eprintln!("3. Source it: source /etc/bash_completion");
+    } else {
+        eprintln!();
+        eprintln!("{}", "To activate:".bright_cyan());
+        eprintln!("  source /etc/bash_completion");
+        eprintln!("  or restart your terminal");
+    }
+
+    eprintln!();
+    Ok(())
+}
+
+fn install_zsh_completion() -> Result<()> {
+    use std::fs;
+
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "📦 Installing Zsh completions..."
+    ));
+    eprintln!();
+
+    let completion_script = include_str!("../../completions/nsfw.zsh");
+
+    // Try to find a location in $fpath
+    let mut target_paths = vec![
+        PathBuf::from("/usr/local/share/zsh/site-functions/_nsfw"),
+    ];
+
+    if let Some(home) = dirs::home_dir() {
+        target_paths.push(home.join(".local/share/zsh/site-functions/_nsfw"));
+        target_paths.push(home.join(".zsh/completions/_nsfw"));
+    }
+
+    let mut installed = false;
+    for target_path in &target_paths {
+        if let Some(parent) = target_path.parent() {
+            if (parent.exists() || fs::create_dir_all(parent).is_ok())
+                && fs::write(target_path, completion_script).is_ok()
+            {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Success,
+                    &format!("✓ Installed completion script to: {}", target_path.display())
+                ));
+                installed = true;
+                break;
+            }
+        }
+    }
+
+    if !installed {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Warning,
+            "Could not install to system locations. Manual installation required."
+        ));
+        eprintln!();
+        eprintln!("{}", "To install manually:".bright_cyan());
+        eprintln!("1. Create a directory: mkdir -p ~/.zsh/completions");
+        eprintln!("2. Save completions/nsfw.zsh to ~/.zsh/completions/_nsfw");
+        eprintln!("3. Add to ~/.zshrc:");
+        eprintln!("   fpath=(~/.zsh/completions $fpath)");
+        eprintln!("   autoload -Uz compinit && compinit");
+    } else {
+        eprintln!();
+        eprintln!("{}", "To activate:".bright_cyan());
+        eprintln!("  Restart your terminal or run:");
+        eprintln!("  autoload -Uz compinit && compinit");
+    }
+
+    eprintln!();
+    Ok(())
+}
+
+fn install_fish_completion() -> Result<()> {
+    use std::fs;
+
+    eprintln!("{}", OutputFormatter::format_message(
+        MessageType::Info,
+        "📦 Installing Fish completions..."
+    ));
+    eprintln!();
+
+    let completion_script = include_str!("../../completions/nsfw.fish");
+
+    // Fish completions location
+    let target_path = dirs::home_dir()
+        .map(|h| h.join(".config/fish/completions/nsfw.fish"));
+
+    if let Some(target_path) = target_path {
+        if let Some(parent) = target_path.parent() {
+            fs::create_dir_all(parent)?;
+            fs::write(&target_path, completion_script)?;
+
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Success,
+                &format!("✓ Installed completion script to: {}", target_path.display())
+            ));
+            eprintln!();
+            eprintln!("{}", "Completions are active immediately!".bright_green());
+            eprintln!("  (Fish automatically loads completions from ~/.config/fish/completions/)");
+        }
+    } else {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Error,
+            "Could not determine home directory"
+        ));
+    }
+
+    eprintln!();
     Ok(())
 }
 
