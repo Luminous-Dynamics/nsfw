@@ -29,6 +29,7 @@ pub enum PathType {
 /// let win_path = translator.to_windows("/mnt/c/Users/John/file.txt")?;
 /// assert_eq!(win_path, "C:\\Users\\John\\file.txt");
 /// ```
+#[derive(Clone)]
 pub struct PathTranslator {
     /// Whether to preserve Nix store paths (default: true)
     preserve_nix_store: bool,

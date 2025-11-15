@@ -106,6 +106,9 @@ enum Commands {
         action: CacheAction,
     },
 
+    /// Diagnose system health and configuration
+    Doctor,
+
     /// Install shell completions
     Completion {
         /// Shell type (powershell, bash, zsh, fish)
@@ -175,6 +178,9 @@ fn main() {
                 CacheAction::Clear => cli::commands::cache_clear(),
                 CacheAction::Rebuild => cli::commands::cache_rebuild(),
             }
+        }
+        Commands::Doctor => {
+            cli::commands::doctor()
         }
         Commands::Completion { shell } => {
             cli::commands::install_completion(&shell)

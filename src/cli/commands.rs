@@ -2,12 +2,46 @@ use anyhow::Result;
 use std::path::PathBuf;
 use colored::Colorize;
 
-use crate::nix_ops::{BridgedNixExecutor, NixError, types::SearchResult};
+use crate::nix_ops::{BridgedNixExecutor, NixError, ErrorContext, types::SearchResult};
 use crate::templates::{WrapperGenerator, PackageInfo, WrapperType};
-use crate::wsl2::RealWSL2Bridge;
+use crate::wsl2::{RealWSL2Bridge, bridge::WSL2Bridge};
 use crate::cache::SearchCache;
 use crate::ui::{ProgressIndicator, OutputFormatter, MessageType};
 use crate::package_cache::{PackageCache, CacheBuilder, CachedPackage};
+
+/// Helper function to format NixError with context
+fn format_nix_error(error: &NixError) -> String {
+    let mut output = String::new();
+
+    // Error message
+    output.push_str(&OutputFormatter::format_message(
+        MessageType::Error,
+        &error.user_message()
+    ));
+    output.push('\n');
+
+    // Suggestion if available
+    if let Some(suggestion) = error.suggestion() {
+        output.push('\n');
+        output.push_str(&format!("{}\n{}",
+            "💡 Suggestion:".bright_cyan().bold(),
+            suggestion.bright_white()
+        ));
+        output.push('\n');
+    }
+
+    // Help URL if available
+    if let Some(url) = error.help_url() {
+        output.push('\n');
+        output.push_str(&format!("{} {}",
+            "📖 More info:".bright_cyan(),
+            url.bright_blue().underline()
+        ));
+        output.push('\n');
+    }
+
+    output
+}
 
 /// Helper to spawn background cache update if needed
 fn spawn_cache_update_if_needed(cache: PackageCache) {
@@ -179,7 +213,7 @@ pub fn install(package: &str, yes: bool) -> Result<()> {
     progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
         progress.finish_and_clear();
-        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        eprint!("{}", format_nix_error(&e));
         return Err(e.into());
     }
     progress.finish_and_clear();
@@ -234,7 +268,7 @@ pub fn remove(package: &str, yes: bool) -> Result<()> {
     progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
         progress.finish_and_clear();
-        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        eprint!("{}", format_nix_error(&e));
         return Err(e.into());
     }
     progress.finish_and_clear();
@@ -289,7 +323,7 @@ pub fn list(detailed: bool, format: &str) -> Result<()> {
     progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
         progress.finish_and_clear();
-        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        eprint!("{}", format_nix_error(&e));
         return Err(e.into());
     }
 
@@ -340,7 +374,7 @@ pub fn info(package: &str) -> Result<()> {
     progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
         progress.finish_and_clear();
-        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        eprint!("{}", format_nix_error(&e));
         return Err(e.into());
     }
 
@@ -352,17 +386,14 @@ pub fn info(package: &str) -> Result<()> {
             print!("{}", OutputFormatter::format_package_info(&pkg_info));
             Ok(())
         }
-        Err(NixError::PackageNotFound(_)) => {
+        Err(e @ NixError::PackageNotFound(_)) => {
             progress.finish_and_clear();
-            eprintln!("{}", OutputFormatter::format_error_with_suggestion(
-                &format!("Package '{}' not found", package),
-                "Try searching for similar packages with 'nsfw search'"
-            ));
-            Err(NixError::PackageNotFound(package.to_string()).into())
+            eprint!("{}", format_nix_error(&e));
+            Err(e.into())
         }
         Err(e) => {
             progress.finish_and_clear();
-            eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &format!("Failed to get package info: {}", e)));
+            eprint!("{}", format_nix_error(&e));
             Err(e.into())
         }
     }
@@ -380,7 +411,7 @@ pub fn update() -> Result<()> {
     progress.set_message("Checking Nix availability...");
     if let Err(e) = executor.check_nix_available() {
         progress.finish_and_clear();
-        eprintln!("{}", OutputFormatter::format_message(MessageType::Error, &e.to_string()));
+        eprint!("{}", format_nix_error(&e));
         return Err(e.into());
     }
 
@@ -770,4 +801,183 @@ pub fn cache_rebuild() -> Result<()> {
             Err(e)
         }
     }
+}
+
+pub fn doctor() -> Result<()> {
+    eprintln!("{}", OutputFormatter::format_section("System Health Check"));
+    eprintln!();
+    eprintln!("Running diagnostics...");
+    eprintln!();
+
+    let mut issues_found = 0;
+    let mut checks_passed = 0;
+
+    // Check 1: WSL2 availability
+    eprintln!("{}", "1. Checking WSL2...".bright_white());
+    let bridge = RealWSL2Bridge::new();
+    if bridge.is_available() {
+        eprintln!("   {} WSL2 is installed and available", "✓".bright_green());
+        checks_passed += 1;
+
+        // Check WSL version
+        match std::process::Command::new("wsl").arg("--version").output() {
+            Ok(output) if output.status.success() => {
+                let version = String::from_utf8_lossy(&output.stdout);
+                if version.contains("WSL version") || version.contains("2.") {
+                    eprintln!("   {} WSL2 version detected", "✓".bright_green());
+                }
+            }
+            _ => {}
+        }
+    } else {
+        eprintln!("   {} WSL2 is not available", "✗".bright_red());
+        eprintln!("     {}: Install WSL2 with: {}",
+            "Fix".bright_cyan(),
+            "wsl --install".bright_yellow()
+        );
+        issues_found += 1;
+    }
+    eprintln!();
+
+    // Check 2: Nix availability
+    eprintln!("{}", "2. Checking Nix installation...".bright_white());
+    if bridge.is_available() {
+        let executor = BridgedNixExecutor::new(bridge.clone());
+        match executor.check_nix_available() {
+            Ok(version) => {
+                eprintln!("   {} Nix is installed: {}", "✓".bright_green(), version);
+                checks_passed += 1;
+            }
+            Err(_) => {
+                eprintln!("   {} Nix is not installed in WSL2", "✗".bright_red());
+                eprintln!("     {}: Run {}",
+                    "Fix".bright_cyan(),
+                    "nsfw setup".bright_yellow()
+                );
+                issues_found += 1;
+            }
+        }
+    } else {
+        eprintln!("   {} Cannot check (WSL2 not available)", "⊘".bright_yellow());
+    }
+    eprintln!();
+
+    // Check 3: Package cache
+    eprintln!("{}", "3. Checking package cache...".bright_white());
+    match PackageCache::new() {
+        Ok(cache) => {
+            if let Ok(()) = cache.initialize() {
+                let stats = cache.stats()?;
+                if stats.total_packages > 0 {
+                    eprintln!("   {} Package cache is healthy ({} packages)",
+                        "✓".bright_green(),
+                        stats.total_packages
+                    );
+                    checks_passed += 1;
+
+                    // Check cache age
+                    if let Ok(Some(age_secs)) = cache.get_age_seconds() {
+                        if age_secs > 2592000 { // 30 days
+                            eprintln!("   {} Cache is over 30 days old", "⚠".bright_yellow());
+                            eprintln!("     {}: Run {}",
+                                "Suggestion".bright_cyan(),
+                                "nsfw update".bright_yellow()
+                            );
+                        }
+                    }
+                } else {
+                    eprintln!("   {} Package cache is empty", "⚠".bright_yellow());
+                    eprintln!("     {}: Run any search to build cache: {}",
+                        "Fix".bright_cyan(),
+                        "nsfw search firefox".bright_yellow()
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("   {} Cache error: {}", "✗".bright_red(), e);
+            issues_found += 1;
+        }
+    }
+    eprintln!();
+
+    // Check 4: Permissions
+    eprintln!("{}", "4. Checking permissions...".bright_white());
+    let cache_dir = dirs::cache_dir();
+    if let Some(dir) = cache_dir {
+        let nsfw_cache = dir.join("nsfw");
+        if nsfw_cache.exists() {
+            match std::fs::metadata(&nsfw_cache) {
+                Ok(metadata) => {
+                    if !metadata.permissions().readonly() {
+                        eprintln!("   {} Cache directory is writable", "✓".bright_green());
+                        checks_passed += 1;
+                    } else {
+                        eprintln!("   {} Cache directory is read-only", "✗".bright_red());
+                        issues_found += 1;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("   {} Cannot check permissions: {}", "⚠".bright_yellow(), e);
+                }
+            }
+        } else {
+            eprintln!("   {} Cache directory will be created on first use", "ℹ".bright_blue());
+        }
+    }
+    eprintln!();
+
+    // Check 5: Disk space
+    eprintln!("{}", "5. Checking disk space...".bright_white());
+    if let Ok(cache) = PackageCache::new() {
+        if let Ok(size) = cache.get_size() {
+            let size_mb = size as f64 / 1_048_576.0;
+            eprintln!("   {} Cache using {:.2} MB", "ℹ".bright_blue(), size_mb);
+
+            // Check if cache is unusually large
+            if size_mb > 1000.0 {
+                eprintln!("   {} Cache is very large (> 1 GB)", "⚠".bright_yellow());
+                eprintln!("     {}: Consider running {}",
+                    "Suggestion".bright_cyan(),
+                    "nsfw cache clear".bright_yellow()
+                );
+            }
+        }
+    }
+    eprintln!();
+
+    // Summary
+    eprintln!("{}", "═".repeat(60).bright_black());
+    eprintln!();
+
+    if issues_found == 0 {
+        eprintln!("{} {} System is healthy! ({} checks passed)",
+            "🎉".bright_green(),
+            "Success:".bright_green().bold(),
+            checks_passed
+        );
+        eprintln!();
+        eprintln!("Your NSFW installation is working correctly.");
+    } else {
+        eprintln!("{} {} Found {} issue(s) ({} checks passed)",
+            "⚠".bright_yellow(),
+            "Warning:".bright_yellow().bold(),
+            issues_found,
+            checks_passed
+        );
+        eprintln!();
+        eprintln!("Please address the issues above for optimal performance.");
+        eprintln!();
+        eprintln!("Quick fixes:");
+        eprintln!("  • Install WSL2: {}", "wsl --install".bright_yellow());
+        eprintln!("  • Setup Nix: {}", "nsfw setup".bright_yellow());
+        eprintln!("  • Build cache: {}", "nsfw search firefox".bright_yellow());
+    }
+
+    eprintln!();
+    eprintln!("For more help, visit: {}",
+        "https://github.com/Luminous-Dynamics/nsfw".bright_blue().underline()
+    );
+
+    Ok(())
 }

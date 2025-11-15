@@ -6,6 +6,7 @@ use super::bridge::{WSL2Bridge, CommandOutput};
 use crate::path_translation::PathTranslator;
 
 /// Real WSL2 bridge that executes commands via wsl.exe
+#[derive(Clone)]
 pub struct RealWSL2Bridge {
     /// Path translator for Windows ↔ WSL path conversion
     path_translator: PathTranslator,
