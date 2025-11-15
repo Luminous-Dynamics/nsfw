@@ -36,10 +36,12 @@ complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -s h -l help -d
 
 # install/add command
 complete -c nsfw -f -n '__fish_seen_subcommand_from install add' -s y -l yes -d 'Skip confirmation prompt'
+complete -c nsfw -f -n '__fish_seen_subcommand_from install add' -l dry-run -d 'Show what would be installed'
 complete -c nsfw -f -n '__fish_seen_subcommand_from install add' -s h -l help -d 'Show help'
 
 # remove/uninstall command
 complete -c nsfw -f -n '__fish_seen_subcommand_from remove uninstall' -s y -l yes -d 'Skip confirmation prompt'
+complete -c nsfw -f -n '__fish_seen_subcommand_from remove uninstall' -l dry-run -d 'Show what would be removed'
 complete -c nsfw -f -n '__fish_seen_subcommand_from remove uninstall' -s h -l help -d 'Show help'
 
 # list/ls command
@@ -93,6 +95,7 @@ complete -c nsfw -f -n '__fish_seen_subcommand_from completion' -s h -l help -d 
 
 # upgrade command
 complete -c nsfw -f -n '__fish_seen_subcommand_from upgrade' -s y -l yes -d 'Skip confirmation prompt'
+complete -c nsfw -f -n '__fish_seen_subcommand_from upgrade' -l dry-run -d 'Show what would be upgraded'
 complete -c nsfw -f -n '__fish_seen_subcommand_from upgrade' -s h -l help -d 'Show help'
 
 # export command
@@ -102,6 +105,7 @@ complete -c nsfw -f -n '__fish_seen_subcommand_from export' -s h -l help -d 'Sho
 
 # import command
 complete -c nsfw -f -n '__fish_seen_subcommand_from import' -s y -l yes -d 'Skip confirmation prompt'
+complete -c nsfw -f -n '__fish_seen_subcommand_from import' -l dry-run -d 'Show what would be imported'
 complete -c nsfw -f -n '__fish_seen_subcommand_from import' -s h -l help -d 'Show help'
 # Suggest JSON and TOML files for import
 complete -c nsfw -n '__fish_seen_subcommand_from import' -a '(__fish_complete_suffix .json)' -d 'JSON file'

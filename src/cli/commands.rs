@@ -204,7 +204,22 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     }
 }
 
-pub fn install(package: &str, yes: bool) -> Result<()> {
+pub fn install(package: &str, yes: bool, dry_run: bool) -> Result<()> {
+    if dry_run {
+        eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would install '{}'", package)));
+        eprintln!();
+        eprintln!("{}", "The following actions would be performed:".bright_cyan());
+        eprintln!("  {} Connect to WSL2", "→".bright_blue());
+        eprintln!("  {} Check Nix availability", "→".bright_blue());
+        eprintln!("  {} Search for package: {}", "→".bright_blue(), package.bright_yellow());
+        eprintln!("  {} Install package via nix-env", "→".bright_blue());
+        eprintln!("  {} Generate Windows wrapper scripts", "→".bright_blue());
+        eprintln!();
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual installation");
+        return Ok(());
+    }
+
     eprintln!("{}", OutputFormatter::format_section(&format!("Installing '{}'", package)));
 
     // Create bridged executor that uses WSL2
@@ -259,7 +274,22 @@ pub fn install(package: &str, yes: bool) -> Result<()> {
     }
 }
 
-pub fn remove(package: &str, yes: bool) -> Result<()> {
+pub fn remove(package: &str, yes: bool, dry_run: bool) -> Result<()> {
+    if dry_run {
+        eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would remove '{}'", package)));
+        eprintln!();
+        eprintln!("{}", "The following actions would be performed:".bright_cyan());
+        eprintln!("  {} Connect to WSL2", "→".bright_blue());
+        eprintln!("  {} Check Nix availability", "→".bright_blue());
+        eprintln!("  {} Verify package is installed", "→".bright_blue());
+        eprintln!("  {} Remove package via nix-env", "→".bright_blue());
+        eprintln!("  {} Clean up Windows wrapper scripts", "→".bright_blue());
+        eprintln!();
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual removal");
+        return Ok(());
+    }
+
     eprintln!("{}", OutputFormatter::format_section(&format!("Removing '{}'", package)));
 
     // Create bridged executor that uses WSL2
@@ -1260,7 +1290,37 @@ struct ExportedPackage {
 }
 
 /// Upgrade installed package(s) to latest version
-pub fn upgrade(package: Option<&str>, yes: bool) -> Result<()> {
+pub fn upgrade(package: Option<&str>, yes: bool, dry_run: bool) -> Result<()> {
+    if dry_run {
+        if let Some(pkg_name) = package {
+            // Single package dry-run
+            eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would upgrade '{}'", pkg_name)));
+            eprintln!();
+            eprintln!("{}", "The following actions would be performed:".bright_cyan());
+            eprintln!("  {} Connect to WSL2", "→".bright_blue());
+            eprintln!("  {} Check package current version", "→".bright_blue());
+            eprintln!("  {} Remove old version of: {}", "→".bright_blue(), pkg_name.bright_yellow());
+            eprintln!("  {} Install latest version of: {}", "→".bright_blue(), pkg_name.bright_yellow());
+            eprintln!("  {} Update Windows wrapper scripts", "→".bright_blue());
+            eprintln!();
+        } else {
+            // All packages dry-run
+            eprintln!("{}", OutputFormatter::format_section("DRY RUN: Would upgrade all packages"));
+            eprintln!();
+            eprintln!("{}", "The following actions would be performed:".bright_cyan());
+            eprintln!("  {} Connect to WSL2", "→".bright_blue());
+            eprintln!("  {} List all installed packages", "→".bright_blue());
+            eprintln!("  {} For each package:", "→".bright_blue());
+            eprintln!("    {} Remove old version", "→".bright_blue());
+            eprintln!("    {} Install latest version", "→".bright_blue());
+            eprintln!("  {} Update Windows wrapper scripts", "→".bright_blue());
+            eprintln!();
+        }
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual upgrade");
+        return Ok(());
+    }
+
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
 
@@ -1457,7 +1517,7 @@ pub fn export(output: &str, format: &str) -> Result<()> {
 }
 
 /// Import and install packages from a file
-pub fn import(file: &str, yes: bool) -> Result<()> {
+pub fn import(file: &str, yes: bool, dry_run: bool) -> Result<()> {
     println!("{} {}",
         "Importing packages from:".bright_cyan(),
         file.bright_yellow()
@@ -1480,6 +1540,33 @@ pub fn import(file: &str, yes: bool) -> Result<()> {
     println!("  Exported at: {}", exported.exported_at.dimmed());
     println!("  Exported from NSFW version: {}", exported.version.dimmed());
     println!();
+
+    if dry_run {
+        eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would import {} packages", exported.packages.len())));
+        eprintln!();
+        eprintln!("{}", "The following packages would be installed:".bright_cyan());
+        for (i, pkg) in exported.packages.iter().enumerate() {
+            eprintln!("  {}. {} {}",
+                (i + 1).to_string().bright_blue(),
+                pkg.name.bright_yellow(),
+                if let Some(ref ver) = pkg.version {
+                    format!("({})", ver).dimmed().to_string()
+                } else {
+                    "".to_string()
+                }
+            );
+        }
+        eprintln!();
+        eprintln!("{}", "Actions that would be performed:".bright_cyan());
+        eprintln!("  {} Connect to WSL2", "→".bright_blue());
+        eprintln!("  {} Check which packages are already installed", "→".bright_blue());
+        eprintln!("  {} Install missing packages via nix-env", "→".bright_blue());
+        eprintln!("  {} Generate Windows wrapper scripts", "→".bright_blue());
+        eprintln!();
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual import");
+        return Ok(());
+    }
 
     if !yes {
         use dialoguer::Confirm;

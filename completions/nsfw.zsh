@@ -27,12 +27,14 @@ _nsfw() {
                 install|add)
                     _arguments \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
+                        '--dry-run[Show what would be installed without actually installing]' \
                         '(-h --help)'{-h,--help}'[Show help]' \
                         '1:package:'
                     ;;
                 remove|uninstall)
                     _arguments \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
+                        '--dry-run[Show what would be removed without actually removing]' \
                         '(-h --help)'{-h,--help}'[Show help]' \
                         '1:package:_nsfw_installed_packages'
                     ;;
@@ -76,6 +78,7 @@ _nsfw() {
                 upgrade)
                     _arguments \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
+                        '--dry-run[Show what would be upgraded without actually upgrading]' \
                         '(-h --help)'{-h,--help}'[Show help]' \
                         '::package:'
                     ;;
@@ -88,6 +91,7 @@ _nsfw() {
                 import)
                     _arguments \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
+                        '--dry-run[Show what would be imported without actually installing]' \
                         '(-h --help)'{-h,--help}'[Show help]' \
                         '1:file:_files -g "*.{json,toml}"'
                     ;;

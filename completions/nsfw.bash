@@ -59,7 +59,7 @@ _nsfw_completions() {
         install|add)
             case "$cur" in
                 -*)
-                    COMPREPLY=($(compgen -W "--yes --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--yes --dry-run --help" -- "$cur"))
                     ;;
             esac
             return
@@ -67,7 +67,7 @@ _nsfw_completions() {
         remove|uninstall)
             case "$cur" in
                 -*)
-                    COMPREPLY=($(compgen -W "--yes --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--yes --dry-run --help" -- "$cur"))
                     ;;
                 *)
                     # Could suggest installed packages here
@@ -156,7 +156,7 @@ _nsfw_completions() {
         upgrade)
             case "$cur" in
                 -*)
-                    COMPREPLY=($(compgen -W "--yes --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--yes --dry-run --help" -- "$cur"))
                     ;;
             esac
             return
@@ -172,7 +172,7 @@ _nsfw_completions() {
         import)
             case "$cur" in
                 -*)
-                    COMPREPLY=($(compgen -W "--yes --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--yes --dry-run --help" -- "$cur"))
                     ;;
                 *)
                     # Suggest files

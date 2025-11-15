@@ -45,6 +45,10 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+
+        /// Show what would be installed without actually installing
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Remove an installed package
@@ -56,6 +60,10 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+
+        /// Show what would be removed without actually removing
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// List installed packages
@@ -130,6 +138,10 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+
+        /// Show what would be upgraded without actually upgrading
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Export installed packages to a file
@@ -151,6 +163,10 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+
+        /// Show what would be imported without actually installing
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -217,11 +233,11 @@ fn main() {
         Commands::Search { query, limit, format } => {
             cli::commands::search(&query, limit, &format)
         }
-        Commands::Install { package, yes } => {
-            cli::commands::install(&package, yes)
+        Commands::Install { package, yes, dry_run } => {
+            cli::commands::install(&package, yes, dry_run)
         }
-        Commands::Remove { package, yes } => {
-            cli::commands::remove(&package, yes)
+        Commands::Remove { package, yes, dry_run } => {
+            cli::commands::remove(&package, yes, dry_run)
         }
         Commands::List { detailed, format } => {
             cli::commands::list(detailed, &format)
@@ -261,14 +277,14 @@ fn main() {
                 ConfigAction::Keys => cli::commands::config_keys(),
             }
         }
-        Commands::Upgrade { package, yes } => {
-            cli::commands::upgrade(package.as_deref(), yes)
+        Commands::Upgrade { package, yes, dry_run } => {
+            cli::commands::upgrade(package.as_deref(), yes, dry_run)
         }
         Commands::Export { output, format } => {
             cli::commands::export(&output, &format)
         }
-        Commands::Import { file, yes } => {
-            cli::commands::import(&file, yes)
+        Commands::Import { file, yes, dry_run } => {
+            cli::commands::import(&file, yes, dry_run)
         }
     };
 
