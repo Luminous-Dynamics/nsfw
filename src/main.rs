@@ -45,11 +45,12 @@ enum Commands {
         fuzzy: bool,
     },
 
-    /// Install a package
+    /// Install one or more packages
     #[command(alias = "add")]
     Install {
-        /// Package name (e.g., firefox, python3)
-        package: String,
+        /// Package name(s) (e.g., firefox, python3, nodejs)
+        #[arg(required = true)]
+        packages: Vec<String>,
 
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
@@ -60,11 +61,12 @@ enum Commands {
         dry_run: bool,
     },
 
-    /// Remove an installed package
+    /// Remove one or more installed packages
     #[command(alias = "uninstall")]
     Remove {
-        /// Package name to remove
-        package: String,
+        /// Package name(s) to remove
+        #[arg(required = true)]
+        packages: Vec<String>,
 
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
@@ -248,11 +250,11 @@ fn main() {
         Commands::Search { query, limit, format, fuzzy } => {
             cli::commands::search(&query, limit, &format, fuzzy)
         }
-        Commands::Install { package, yes, dry_run } => {
-            cli::commands::install(&package, yes, dry_run)
+        Commands::Install { packages, yes, dry_run } => {
+            cli::commands::install_batch(&packages, yes, dry_run)
         }
-        Commands::Remove { package, yes, dry_run } => {
-            cli::commands::remove(&package, yes, dry_run)
+        Commands::Remove { packages, yes, dry_run } => {
+            cli::commands::remove_batch(&packages, yes, dry_run)
         }
         Commands::List { detailed, format } => {
             cli::commands::list(detailed, &format)

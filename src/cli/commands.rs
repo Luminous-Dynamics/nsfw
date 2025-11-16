@@ -354,6 +354,232 @@ pub fn remove(package: &str, yes: bool, dry_run: bool) -> Result<()> {
     }
 }
 
+/// Install multiple packages at once
+pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()> {
+    if dry_run {
+        eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would install {} package(s)", packages.len())));
+        eprintln!();
+        eprintln!("{}", "The following packages would be installed:".bright_cyan());
+        for (i, pkg) in packages.iter().enumerate() {
+            eprintln!("  {}. {}", (i + 1).to_string().bright_blue(), pkg.bright_yellow());
+        }
+        eprintln!();
+        eprintln!("{}", "Actions that would be performed:".bright_cyan());
+        eprintln!("  {} Connect to WSL2", "→".bright_blue());
+        eprintln!("  {} Check Nix availability", "→".bright_blue());
+        eprintln!("  {} For each package:", "→".bright_blue());
+        eprintln!("    {} Search for package", "→".bright_blue());
+        eprintln!("    {} Install package via nix-env", "→".bright_blue());
+        eprintln!("    {} Generate Windows wrapper scripts", "→".bright_blue());
+        eprintln!();
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual installation");
+        return Ok(());
+    }
+
+    eprintln!("{}", OutputFormatter::format_section(&format!("Installing {} package(s)", packages.len())));
+    eprintln!();
+    for (i, pkg) in packages.iter().enumerate() {
+        eprintln!("  {}. {}", (i + 1).to_string().bright_blue(), pkg.bright_yellow());
+    }
+    eprintln!();
+
+    // Create bridged executor that uses WSL2
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
+    if let Err(e) = executor.check_nix_available() {
+        progress.finish_and_clear();
+        eprint!("{}", format_nix_error(&e));
+        return Err(e.into());
+    }
+    progress.finish_and_clear();
+
+    // Confirm unless --yes flag
+    if !yes {
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Proceed with installation of {} package(s)?", packages.len()))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Installation cancelled"));
+            return Ok(());
+        }
+    }
+
+    // Install each package
+    let mut success_count = 0;
+    let mut already_installed_count = 0;
+    let mut failed_packages: Vec<(String, String)> = Vec::new();
+
+    for package in packages {
+        eprintln!();
+        let progress = ProgressIndicator::spinner(&format!("Installing '{}'...", package));
+        match executor.install(package) {
+            Ok(()) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("✓ Successfully installed '{}'", package)));
+                success_count += 1;
+            }
+            Err(NixError::AlreadyInstalled(_)) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("→ Package '{}' is already installed", package)));
+                already_installed_count += 1;
+            }
+            Err(e) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                    &format!("✗ Installation of '{}' failed: {}", package, e),
+                    "Continuing with remaining packages..."
+                ));
+                failed_packages.push((package.clone(), e.to_string()));
+            }
+        }
+    }
+
+    // Display summary
+    eprintln!();
+    eprintln!("{}", "═".repeat(60).bright_black());
+    eprintln!();
+    eprintln!("{}", "Installation Summary".bright_cyan().bold());
+    eprintln!("  {} Succeeded: {}", "✓".bright_green(), success_count);
+    if already_installed_count > 0 {
+        eprintln!("  {} Already installed: {}", "→".bright_blue(), already_installed_count);
+    }
+    if !failed_packages.is_empty() {
+        eprintln!("  {} Failed: {}", "✗".bright_red(), failed_packages.len());
+        eprintln!();
+        eprintln!("{}", "Failed packages:".bright_red());
+        for (pkg, err) in &failed_packages {
+            eprintln!("  • {}: {}", pkg.bright_yellow(), err.dimmed());
+        }
+    }
+
+    if !failed_packages.is_empty() {
+        Err(anyhow::anyhow!("{} package(s) failed to install", failed_packages.len()))
+    } else {
+        Ok(())
+    }
+}
+
+/// Remove multiple packages at once
+pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()> {
+    if dry_run {
+        eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would remove {} package(s)", packages.len())));
+        eprintln!();
+        eprintln!("{}", "The following packages would be removed:".bright_cyan());
+        for (i, pkg) in packages.iter().enumerate() {
+            eprintln!("  {}. {}", (i + 1).to_string().bright_blue(), pkg.bright_yellow());
+        }
+        eprintln!();
+        eprintln!("{}", "Actions that would be performed:".bright_cyan());
+        eprintln!("  {} Connect to WSL2", "→".bright_blue());
+        eprintln!("  {} Check Nix availability", "→".bright_blue());
+        eprintln!("  {} For each package:", "→".bright_blue());
+        eprintln!("    {} Verify package is installed", "→".bright_blue());
+        eprintln!("    {} Remove package via nix-env", "→".bright_blue());
+        eprintln!("    {} Clean up Windows wrapper scripts", "→".bright_blue());
+        eprintln!();
+        eprintln!("{}", "💡 No changes will be made (dry-run mode)".bright_cyan());
+        eprintln!("   Remove --dry-run to perform actual removal");
+        return Ok(());
+    }
+
+    eprintln!("{}", OutputFormatter::format_section(&format!("Removing {} package(s)", packages.len())));
+    eprintln!();
+    for (i, pkg) in packages.iter().enumerate() {
+        eprintln!("  {}. {}", (i + 1).to_string().bright_blue(), pkg.bright_yellow());
+    }
+    eprintln!();
+
+    // Create bridged executor that uses WSL2
+    let progress = ProgressIndicator::spinner("Connecting to WSL2...");
+    let bridge = RealWSL2Bridge::new();
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Check if Nix is available
+    progress.set_message("Checking Nix availability...");
+    if let Err(e) = executor.check_nix_available() {
+        progress.finish_and_clear();
+        eprint!("{}", format_nix_error(&e));
+        return Err(e.into());
+    }
+    progress.finish_and_clear();
+
+    // Confirm unless --yes flag
+    if !yes {
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Proceed with removal of {} package(s)?", packages.len()))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            eprintln!("{}", OutputFormatter::format_message(MessageType::Info, "Removal cancelled"));
+            return Ok(());
+        }
+    }
+
+    // Remove each package
+    let mut success_count = 0;
+    let mut not_installed_count = 0;
+    let mut failed_packages: Vec<(String, String)> = Vec::new();
+
+    for package in packages {
+        eprintln!();
+        let progress = ProgressIndicator::spinner(&format!("Removing '{}'...", package));
+        match executor.remove(package) {
+            Ok(()) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("✓ Successfully removed '{}'", package)));
+                success_count += 1;
+            }
+            Err(NixError::NotInstalled(_)) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_message(MessageType::Warning, &format!("→ Package '{}' is not installed", package)));
+                not_installed_count += 1;
+            }
+            Err(e) => {
+                progress.finish_and_clear();
+                eprintln!("{}", OutputFormatter::format_error_with_suggestion(
+                    &format!("✗ Removal of '{}' failed: {}", package, e),
+                    "Continuing with remaining packages..."
+                ));
+                failed_packages.push((package.clone(), e.to_string()));
+            }
+        }
+    }
+
+    // Display summary
+    eprintln!();
+    eprintln!("{}", "═".repeat(60).bright_black());
+    eprintln!();
+    eprintln!("{}", "Removal Summary".bright_cyan().bold());
+    eprintln!("  {} Succeeded: {}", "✓".bright_green(), success_count);
+    if not_installed_count > 0 {
+        eprintln!("  {} Not installed: {}", "→".bright_yellow(), not_installed_count);
+    }
+    if !failed_packages.is_empty() {
+        eprintln!("  {} Failed: {}", "✗".bright_red(), failed_packages.len());
+        eprintln!();
+        eprintln!("{}", "Failed packages:".bright_red());
+        for (pkg, err) in &failed_packages {
+            eprintln!("  • {}: {}", pkg.bright_yellow(), err.dimmed());
+        }
+    }
+
+    if !failed_packages.is_empty() {
+        Err(anyhow::anyhow!("{} package(s) failed to remove", failed_packages.len()))
+    } else {
+        Ok(())
+    }
+}
+
 pub fn list(detailed: bool, format: &str) -> Result<()> {
     eprintln!("{}", OutputFormatter::format_section("Installed Packages"));
 

@@ -17,9 +17,9 @@ Register-ArgumentCompleter -Native -CommandName nsfw -ScriptBlock {
     $commands = @{
         'search' = 'Search for packages in nixpkgs'
         'find' = 'Alias for search'
-        'install' = 'Install a package'
+        'install' = 'Install one or more packages'
         'add' = 'Alias for install'
-        'remove' = 'Remove an installed package'
+        'remove' = 'Remove one or more installed packages'
         'uninstall' = 'Alias for remove'
         'list' = 'List installed packages'
         'ls' = 'Alias for list'
