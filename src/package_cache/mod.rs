@@ -499,7 +499,7 @@ impl PackageCache {
 
         let entries = stmt.query_map(params![limit as i32], |row| {
             let action_str: String = row.get(2)?;
-            let action = HistoryAction::from_str(&action_str)
+            let action = action_str.parse()
                 .unwrap_or(HistoryAction::Install);
 
             Ok(HistoryEntry {
@@ -533,7 +533,7 @@ impl PackageCache {
 
         let entries = stmt.query_map(params![package_name, limit as i32], |row| {
             let action_str: String = row.get(2)?;
-            let action = HistoryAction::from_str(&action_str)
+            let action = action_str.parse()
                 .unwrap_or(HistoryAction::Install);
 
             Ok(HistoryEntry {
@@ -662,14 +662,18 @@ impl HistoryAction {
             HistoryAction::Update => "update",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for HistoryAction {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "install" => Some(HistoryAction::Install),
-            "remove" => Some(HistoryAction::Remove),
-            "upgrade" => Some(HistoryAction::Upgrade),
-            "update" => Some(HistoryAction::Update),
-            _ => None,
+            "install" => Ok(HistoryAction::Install),
+            "remove" => Ok(HistoryAction::Remove),
+            "upgrade" => Ok(HistoryAction::Upgrade),
+            "update" => Ok(HistoryAction::Update),
+            _ => Err(format!("Invalid history action: {}", s)),
         }
     }
 }

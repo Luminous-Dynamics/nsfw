@@ -1478,7 +1478,7 @@ pub fn history(limit: usize, package_filter: Option<&str>, show_stats: bool) -> 
     for entry in &entries {
         // Format timestamp
         let dt = chrono::DateTime::from_timestamp(entry.timestamp, 0)
-            .unwrap_or_else(|| chrono::DateTime::UNIX_EPOCH);
+            .unwrap_or(chrono::DateTime::UNIX_EPOCH);
         let time_str = dt.format("%Y-%m-%d %H:%M:%S").to_string();
 
         // Format action with color and emoji
