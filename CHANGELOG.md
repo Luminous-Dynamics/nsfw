@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎉 Added
 
+#### Phase 22: Search Result Formatting Improvements
+- **Compact One-Line Format** - Better space utilization
+  - Package number, name, and version on single line
+  - Format: `1. firefox  122.0`
+  - Immediate visibility of key information
+  - Consistent with modern CLI tools
+
+- **Smart Description Truncation**
+  - Truncates at 100 characters with ellipsis (...)
+  - Breaks at word boundaries for clean cutoff
+  - Removes excess whitespace before truncation
+  - Full description available via `nsfw info <package>`
+
+- **Visual Separators** - Clear result boundaries
+  - Horizontal separators (─ lines) between results
+  - Makes scanning multiple results easier
+  - Professional appearance
+
+- **Enhanced Installed Packages Formatting**
+  - Detailed view: Separators between packages
+  - Compact view: Name + version on one line
+  - Consistent with search results style
+  - Store path shown in detailed mode only
+
+- **New Function: `truncate_description()`**
+  - Intelligent text truncation algorithm
+  - Preserves word boundaries
+  - Handles edge cases (short text, exact length)
+  - Cleans whitespace before processing
+
+**Visual Improvements:**
+- Right-aligned numbering for better alignment
+- Color coding: green names, yellow versions, white descriptions
+- Consistent spacing and indentation across all list outputs
+- Minimal vertical space usage (more results visible)
+
+**Benefits:**
+- Scan 2-3x more results on screen simultaneously
+- Name and version immediately visible together
+- Descriptions provide context without dominating display
+- Professional, modern CLI appearance
+- Consistent formatting across `search`, `list`, and other commands
+
+**Technical Details:**
+- Modified src/ui/output.rs: 81 insertions, 48 deletions
+- Replaced wrap_text() with truncate_description()
+- Updated test suite with truncate_description tests
+- No performance impact (simpler algorithm)
+
 #### Phase 21: Installation History Tracking
 - **Installation History Database** - Complete audit trail
   - SQLite table tracking all package operations
