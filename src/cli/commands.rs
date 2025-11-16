@@ -416,9 +416,23 @@ pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()
     let mut success_count = 0;
     let mut already_installed_count = 0;
     let mut failed_packages: Vec<(String, String)> = Vec::new();
+    let total_packages = packages.len();
 
-    for package in packages {
+    for (index, package) in packages.iter().enumerate() {
+        let current_num = index + 1;
+        let progress_pct = (current_num as f64 / total_packages as f64 * 100.0) as u32;
+
         eprintln!();
+        eprintln!("{}", "─".repeat(60).bright_black());
+        eprintln!("{} [{}/{}] {}% - {}",
+            "📦".bright_cyan(),
+            current_num.to_string().bright_white().bold(),
+            total_packages.to_string().bright_white(),
+            progress_pct.to_string().bright_cyan(),
+            package.bright_yellow().bold()
+        );
+        eprintln!("{}", "─".repeat(60).bright_black());
+
         let progress = ProgressIndicator::spinner(&format!("Installing '{}'...", package));
         match executor.install(package) {
             Ok(()) => {
@@ -529,9 +543,23 @@ pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()>
     let mut success_count = 0;
     let mut not_installed_count = 0;
     let mut failed_packages: Vec<(String, String)> = Vec::new();
+    let total_packages = packages.len();
 
-    for package in packages {
+    for (index, package) in packages.iter().enumerate() {
+        let current_num = index + 1;
+        let progress_pct = (current_num as f64 / total_packages as f64 * 100.0) as u32;
+
         eprintln!();
+        eprintln!("{}", "─".repeat(60).bright_black());
+        eprintln!("{} [{}/{}] {}% - {}",
+            "🗑️".bright_cyan(),
+            current_num.to_string().bright_white().bold(),
+            total_packages.to_string().bright_white(),
+            progress_pct.to_string().bright_cyan(),
+            package.bright_yellow().bold()
+        );
+        eprintln!("{}", "─".repeat(60).bright_black());
+
         let progress = ProgressIndicator::spinner(&format!("Removing '{}'...", package));
         match executor.remove(package) {
             Ok(()) => {
