@@ -34,28 +34,59 @@ impl OutputFormatter {
 
         let mut output = String::new();
 
+        // Add a newline before results
+        output.push('\n');
+
         for (i, result) in results.iter().enumerate() {
-            if show_numbers {
-                output.push_str(&format!("{}. ", (i + 1).to_string().cyan().bold()));
+            // Add separator between results (except before first one)
+            if i > 0 {
+                output.push_str(&format!("{}\n", "─".repeat(70).bright_black()));
             }
 
-            // Package name in bright green
-            output.push_str(&result.pname.bright_green().bold().to_string());
-            output.push('\n');
+            // Package number and name on same line
+            if show_numbers {
+                let number = format!("{:>2}.", i + 1).bright_cyan().bold();
+                let name = result.pname.bright_green().bold();
+                output.push_str(&format!("{} {}", number, name));
 
-            // Version in yellow
-            output.push_str(&format!("   {}: {}\n", "Version".bright_black(), result.version.yellow()));
+                // Add version on same line with separator
+                let version = result.version.bright_yellow();
+                output.push_str(&format!("  {}\n", version));
+            } else {
+                // Without numbers, just show name and version
+                let name = result.pname.bright_green().bold();
+                let version = result.version.bright_yellow();
+                output.push_str(&format!("{} {}\n", name, version));
+            }
 
-            // Description (wrapped if too long)
+            // Description with smart truncation
             if !result.description.is_empty() {
-                let desc = Self::wrap_text(&result.description, 70);
-                output.push_str(&format!("   {}: {}\n", "Description".bright_black(), desc.bright_white()));
+                let desc = Self::truncate_description(&result.description, 100);
+                let indentation = if show_numbers { "    " } else { "   " };
+                output.push_str(&format!("{}{}\n", indentation, desc.bright_white()));
             }
 
             output.push('\n');
         }
 
         output
+    }
+
+    /// Truncate description intelligently with ellipsis
+    fn truncate_description(text: &str, max_len: usize) -> String {
+        // Remove excess whitespace first
+        let cleaned: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        if cleaned.len() <= max_len {
+            return cleaned;
+        }
+
+        // Find a good break point (space near the limit)
+        let truncate_at = cleaned[..max_len]
+            .rfind(' ')
+            .unwrap_or(max_len);
+
+        format!("{}...", &cleaned[..truncate_at])
     }
 
     /// Format installed packages for display
@@ -66,47 +97,42 @@ impl OutputFormatter {
 
         let mut output = String::new();
 
-        for (i, pkg) in packages.iter().enumerate() {
-            output.push_str(&format!("{}. ", (i + 1).to_string().cyan().bold()));
-            output.push_str(&pkg.name.bright_green().bold().to_string());
+        // Add a newline before results
+        output.push('\n');
 
-            if detailed {
+        if detailed {
+            // Detailed view with separators
+            for (i, pkg) in packages.iter().enumerate() {
+                // Add separator between packages (except before first one)
+                if i > 0 {
+                    output.push_str(&format!("{}\n", "─".repeat(70).bright_black()));
+                }
+
+                // Package number and name on same line
+                let number = format!("{:>2}.", i + 1).bright_cyan().bold();
+                let name = pkg.name.bright_green().bold();
+                let version = pkg.version.bright_yellow();
+                output.push_str(&format!("{} {}  {}\n", number, name, version));
+
+                // Store path indented
+                output.push_str(&format!("    {}: {}\n",
+                    "Store path".bright_black(),
+                    pkg.store_path.bright_black()));
+
                 output.push('\n');
-                output.push_str(&format!("   {}: {}\n", "Version".bright_black(), pkg.version.yellow()));
-                output.push_str(&format!("   {}: {}\n", "Store path".bright_black(), pkg.store_path.bright_black()));
             }
-
+        } else {
+            // Compact view - name and version on same line
+            for (i, pkg) in packages.iter().enumerate() {
+                let number = format!("{:>2}.", i + 1).bright_cyan().bold();
+                let name = pkg.name.bright_green().bold();
+                let version = pkg.version.bright_yellow();
+                output.push_str(&format!("{} {}  {}\n", number, name, version));
+            }
             output.push('\n');
         }
 
         output
-    }
-
-    /// Wrap text to specified width
-    fn wrap_text(text: &str, width: usize) -> String {
-        let words: Vec<&str> = text.split_whitespace().collect();
-        let mut lines = Vec::new();
-        let mut current_line = String::new();
-
-        for word in words {
-            if current_line.len() + word.len() < width {
-                if !current_line.is_empty() {
-                    current_line.push(' ');
-                }
-                current_line.push_str(word);
-            } else {
-                if !current_line.is_empty() {
-                    lines.push(current_line);
-                }
-                current_line = word.to_string();
-            }
-        }
-
-        if !current_line.is_empty() {
-            lines.push(current_line);
-        }
-
-        lines.join("\n   ")
     }
 
     /// Format an error with suggestions
@@ -198,10 +224,17 @@ mod tests {
     }
 
     #[test]
-    fn test_wrap_text() {
-        let text = "This is a very long description that should be wrapped";
-        let wrapped = OutputFormatter::wrap_text(text, 20);
-        assert!(wrapped.contains('\n'));
+    fn test_truncate_description() {
+        let text = "This is a very long description that should be truncated at some point";
+        let truncated = OutputFormatter::truncate_description(text, 30);
+        assert!(truncated.contains("..."));
+        assert!(truncated.len() < text.len());
+
+        // Test short text (shouldn't be truncated)
+        let short_text = "Short text";
+        let not_truncated = OutputFormatter::truncate_description(short_text, 30);
+        assert!(!not_truncated.contains("..."));
+        assert_eq!(not_truncated, short_text);
     }
 
     #[test]
