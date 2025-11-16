@@ -380,3 +380,254 @@ fn test_special_characters_in_package_names() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].pname, "python3.11");
 }
+
+// ============================================================================
+// Batch Operation Integration Tests
+// ============================================================================
+
+#[test]
+fn test_batch_install_all_successful() {
+    // Test batch installing multiple packages - all succeed
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    // Add responses for three successful installs
+    bridge.set_response(
+        "nix profile install nixpkgs#firefox".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+    bridge.set_response(
+        "nix profile install nixpkgs#vim".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+    bridge.set_response(
+        "nix profile install nixpkgs#git".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Install all three packages
+    let result1 = executor.install("firefox");
+    let result2 = executor.install("vim");
+    let result3 = executor.install("git");
+
+    assert!(result1.is_ok(), "Firefox install should succeed");
+    assert!(result2.is_ok(), "Vim install should succeed");
+    assert!(result3.is_ok(), "Git install should succeed");
+}
+
+#[test]
+fn test_batch_install_with_partial_failure() {
+    // Test batch installing with some packages failing
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    // Firefox succeeds
+    bridge.set_response(
+        "nix profile install nixpkgs#firefox".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    // Vim already installed
+    bridge.set_response(
+        "nix profile install nixpkgs#vim".to_string(),
+        CommandOutput::new(
+            "".to_string(),
+            "error: package 'vim' is already installed".to_string(),
+            1
+        )
+    );
+
+    // Git succeeds
+    bridge.set_response(
+        "nix profile install nixpkgs#git".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    let result1 = executor.install("firefox");
+    let result2 = executor.install("vim");
+    let result3 = executor.install("git");
+
+    assert!(result1.is_ok(), "Firefox should succeed");
+    assert!(result2.is_err(), "Vim should fail (already installed)");
+    assert!(result3.is_ok(), "Git should succeed");
+
+    // Verify error type for already installed
+    match result2.unwrap_err() {
+        NixError::AlreadyInstalled(pkg) => assert_eq!(pkg, "vim"),
+        _ => panic!("Expected AlreadyInstalled error"),
+    }
+}
+
+#[test]
+fn test_batch_remove_all_successful() {
+    // Test batch removing multiple packages - all succeed
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    // Add responses for three successful removals
+    bridge.set_response(
+        "nix profile remove firefox".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+    bridge.set_response(
+        "nix profile remove vim".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+    bridge.set_response(
+        "nix profile remove git".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Remove all three packages
+    let result1 = executor.remove("firefox");
+    let result2 = executor.remove("vim");
+    let result3 = executor.remove("git");
+
+    assert!(result1.is_ok(), "Firefox removal should succeed");
+    assert!(result2.is_ok(), "Vim removal should succeed");
+    assert!(result3.is_ok(), "Git removal should succeed");
+}
+
+#[test]
+fn test_batch_remove_with_not_installed() {
+    // Test batch removing with some packages not installed
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    // Firefox succeeds
+    bridge.set_response(
+        "nix profile remove firefox".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    // Vim not installed
+    bridge.set_response(
+        "nix profile remove vim".to_string(),
+        CommandOutput::new(
+            "".to_string(),
+            "error: package 'vim' not found in profile".to_string(),
+            1
+        )
+    );
+
+    // Git succeeds
+    bridge.set_response(
+        "nix profile remove git".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    let result1 = executor.remove("firefox");
+    let result2 = executor.remove("vim");
+    let result3 = executor.remove("git");
+
+    assert!(result1.is_ok(), "Firefox should succeed");
+    assert!(result2.is_err(), "Vim should fail (not installed)");
+    assert!(result3.is_ok(), "Git should succeed");
+
+    // Verify error type for not installed
+    match result2.unwrap_err() {
+        NixError::NotInstalled(pkg) => assert_eq!(pkg, "vim"),
+        _ => panic!("Expected NotInstalled error"),
+    }
+}
+
+#[test]
+fn test_batch_operations_maintain_sequence() {
+    // Test that batch operations maintain order and can handle many packages
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    let packages = vec!["pkg1", "pkg2", "pkg3", "pkg4", "pkg5"];
+
+    // Add responses for all packages
+    for pkg in &packages {
+        bridge.set_response(
+            format!("nix profile install nixpkgs#{}", pkg),
+            CommandOutput::new("".to_string(), "".to_string(), 0)
+        );
+    }
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    // Install packages in sequence
+    for pkg in &packages {
+        let result = executor.install(pkg);
+        assert!(result.is_ok(), "Package {} should install successfully", pkg);
+    }
+}
+
+#[test]
+fn test_batch_with_mixed_success_and_failure() {
+    // Test realistic scenario: some succeed, some already installed, some fail
+    let mut bridge = MockWSL2Bridge::new();
+    bridge.add_common_responses();
+
+    // Package 1: Success
+    bridge.set_response(
+        "nix profile install nixpkgs#firefox".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    // Package 2: Already installed
+    bridge.set_response(
+        "nix profile install nixpkgs#vim".to_string(),
+        CommandOutput::new(
+            "".to_string(),
+            "error: package 'vim' is already installed".to_string(),
+            1
+        )
+    );
+
+    // Package 3: Success
+    bridge.set_response(
+        "nix profile install nixpkgs#git".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    // Package 4: Command fails
+    bridge.set_response(
+        "nix profile install nixpkgs#nonexistent".to_string(),
+        CommandOutput::new(
+            "".to_string(),
+            "error: package not found".to_string(),
+            1
+        )
+    );
+
+    // Package 5: Success
+    bridge.set_response(
+        "nix profile install nixpkgs#python3".to_string(),
+        CommandOutput::new("".to_string(), "".to_string(), 0)
+    );
+
+    let executor = BridgedNixExecutor::new(bridge);
+
+    let results = vec![
+        executor.install("firefox"),      // Success
+        executor.install("vim"),          // AlreadyInstalled
+        executor.install("git"),          // Success
+        executor.install("nonexistent"),  // CommandFailed
+        executor.install("python3"),      // Success
+    ];
+
+    // Count successes and failures
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let already_installed = results.iter()
+        .filter(|r| matches!(r.as_ref().err(), Some(NixError::AlreadyInstalled(_))))
+        .count();
+    let failures = results.iter()
+        .filter(|r| r.is_err() && !matches!(r.as_ref().err(), Some(NixError::AlreadyInstalled(_))))
+        .count();
+
+    assert_eq!(success_count, 3, "Should have 3 successful installs");
+    assert_eq!(already_installed, 1, "Should have 1 already installed");
+    assert_eq!(failures, 1, "Should have 1 failure");
+}
