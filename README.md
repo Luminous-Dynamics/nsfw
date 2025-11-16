@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
-[![Tests](https://img.shields.io/badge/tests-127%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#building)
 
 ## What is NSFW?
@@ -25,9 +25,13 @@
 - **Team Sharing**: One config file = identical environment everywhere
 - **Cross-Platform**: Same packages work on Mac/Linux (when you switch machines)
 - **Lightning Fast**: SQLite cache for instant searches (500-1000x speedup!)
+- **Fuzzy Search**: Intelligent typo-tolerant search with relevance ranking
 - **Smart Setup**: Automated WSL2/Nix detection and configuration wizard
 - **Beautiful UI**: Colored output, progress indicators, interactive prompts
-- **Tab Completions**: PowerShell autocomplete for commands and packages
+- **Tab Completions**: Full support for PowerShell, Bash, Zsh, and Fish
+- **Structured Logging**: Professional logging with DEBUG/INFO/WARN/ERROR levels
+- **File Logging**: Optional logging to file for troubleshooting (`--log-file`)
+- **Performance Metrics**: Operation timing and cache performance tracking
 - **Package Info**: Detailed metadata (license, homepage, maintainers)
 - **Auto Updates**: Keep your package database fresh
 - **System Diagnostics**: Built-in health checks and troubleshooting (`nsfw doctor`)
@@ -182,11 +186,18 @@ nsfw install  # Reads project config
 ### Search for Packages
 
 ```powershell
-# Basic search (instant after first run!)
+# Basic fuzzy search (instant after first run!)
 nsfw search <package-name>
 
 # First search takes 2-10 minutes (builds local cache)
 # Subsequent searches: ⚡ Instant (<2 seconds)
+
+# Fuzzy search handles typos automatically
+nsfw search firef   # Finds "firefox"
+nsfw search pythn   # Finds "python"
+
+# Exact search (disable fuzzy matching)
+nsfw search firefox --no-fuzzy
 
 # Search with custom limit
 nsfw search firefox --limit 50
@@ -201,6 +212,13 @@ nsfw search python --format json
 - Future searches: Instant results from local SQLite cache
 - Cache updates automatically (24-hour refresh)
 - 500-1000x faster than traditional Nix search!
+
+**🔍 Fuzzy Search Features:**
+- **Typo tolerance**: Finds packages even with minor spelling errors
+- **Intelligent ranking**: Best matches appear first
+- **Popularity boost**: Frequently used packages ranked higher
+- **Name priority**: Package name matches weighted 2x higher than descriptions
+- **Flexible queries**: Works with partial matches and abbreviations
 
 ### Install Packages
 
@@ -492,6 +510,48 @@ nsfw remove [Tab]       # Shows installed packages
 - ✅ All command-line options and flags
 - ✅ Context-aware suggestions
 - ✅ Helpful descriptions for each option
+
+**Supported Shells:**
+```powershell
+nsfw completion powershell    # PowerShell (Windows)
+nsfw completion bash          # Bash (WSL/Linux/macOS)
+nsfw completion zsh           # Zsh (WSL/Linux/macOS)
+nsfw completion fish          # Fish (WSL/Linux/macOS)
+```
+
+### Logging & Verbose Mode
+
+NSFW includes professional structured logging for troubleshooting and debugging:
+
+```powershell
+# Enable verbose logging (DEBUG level)
+nsfw search python --verbose
+
+# Enable file logging for troubleshooting
+nsfw install firefox --log-file
+
+# Combine verbose + file logging
+nsfw upgrade --verbose --log-file
+
+# Check logs (Windows)
+type $env:USERPROFILE\.nsfw\logs\nsfw.log
+
+# Check logs (WSL/Linux)
+cat ~/.nsfw/logs/nsfw.log
+```
+
+**Logging Features:**
+- **Log Levels**: DEBUG, INFO, WARN, ERROR with color-coded output
+- **File Output**: Optional logging to `~/.nsfw/logs/nsfw.log`
+- **Clean Format**: Timestamps and ANSI-free file output
+- **Performance Timing**: Operation duration logged in debug mode
+- **Cache Statistics**: Hit rates and performance metrics in verbose mode
+
+**When to Use Verbose Mode:**
+- 🐛 Debugging installation issues
+- 📊 Performance analysis
+- 🔍 Understanding what NSFW does internally
+- 📝 Creating bug reports with detailed logs
 
 ### Generate Wrapper Scripts
 
