@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
-[![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-140%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#building)
 
 ## What is NSFW?
@@ -26,6 +26,7 @@
 - **Cross-Platform**: Same packages work on Mac/Linux (when you switch machines)
 - **Lightning Fast**: SQLite cache for instant searches (500-1000x speedup!)
 - **Fuzzy Search**: Intelligent typo-tolerant search with relevance ranking
+- **Batch Operations**: Install or remove multiple packages in one command
 - **Smart Setup**: Automated WSL2/Nix detection and configuration wizard
 - **Beautiful UI**: Colored output, progress indicators, interactive prompts
 - **Tab Completions**: Full support for PowerShell, Bash, Zsh, and Fish
@@ -39,6 +40,7 @@
 - **Package Management**: Upgrade, export, and import package lists
 - **Enhanced Errors**: Helpful error messages with actionable suggestions
 - **Dry-Run Mode**: Preview operations safely before executing (`--dry-run` flag)
+- **Comprehensive Help**: All commands include examples and best practices (`--help`)
 
 ## Prerequisites
 
@@ -104,8 +106,11 @@ nsfw search firefox
 # First search: ~2-10 minutes (one-time)
 # After: ⚡ Instant (<2 seconds)
 
-# Install a package
+# Install a single package
 nsfw install firefox
+
+# Install multiple packages at once (batch operation)
+nsfw install python3 nodejs git vim
 
 # List installed packages
 nsfw list
@@ -116,8 +121,11 @@ nsfw info firefox
 # Update package database
 nsfw update
 
-# Remove a package
+# Remove a single package
 nsfw remove firefox
+
+# Remove multiple packages at once (batch operation)
+nsfw remove python3 nodejs git
 
 # Upgrade packages to latest versions
 nsfw upgrade              # Upgrade all packages
@@ -223,15 +231,31 @@ nsfw search python --format json
 ### Install Packages
 
 ```powershell
-# Interactive install (will prompt for confirmation)
+# Install a single package
 nsfw install firefox
+
+# Install multiple packages at once (batch operation)
+nsfw install python3 nodejs git vim
 
 # Skip confirmation
 nsfw install firefox --yes
 
+# Preview what would be installed (dry-run)
+nsfw install chromium htop --dry-run
+
+# Batch install with auto-confirm
+nsfw install rust cargo cmake --yes
+
 # Alias: add
 nsfw add python3
 ```
+
+**Batch Operation Features:**
+- Install multiple packages in one command
+- Single WSL2 connection for efficiency
+- Per-package progress and error handling
+- Summary showing succeeded/already installed/failed counts
+- Continues with remaining packages if one fails
 
 ### List Installed Packages
 
@@ -252,15 +276,31 @@ nsfw ls -d
 ### Remove Packages
 
 ```powershell
-# Interactive removal (will prompt for confirmation)
+# Remove a single package
 nsfw remove firefox
+
+# Remove multiple packages at once (batch operation)
+nsfw remove python3 nodejs git vim
 
 # Skip confirmation
 nsfw remove firefox --yes
 
+# Preview what would be removed (dry-run)
+nsfw remove chromium htop --dry-run
+
+# Batch remove with auto-confirm
+nsfw remove rust cargo cmake --yes
+
 # Alias: uninstall
 nsfw uninstall python3
 ```
+
+**Batch Operation Features:**
+- Remove multiple packages in one command
+- Single WSL2 connection for efficiency
+- Per-package progress and error handling
+- Summary showing succeeded/not installed/failed counts
+- Continues with remaining packages if one fails
 
 ### Package Information
 
@@ -396,6 +436,54 @@ The following actions would be performed:
 - 🧪 Test import files without modifications
 - 📝 Generate operation documentation
 - 🎓 Learn what NSFW does under the hood
+
+### Comprehensive Help System
+
+Every command includes detailed examples and best practices:
+
+```powershell
+# Get help for any command
+nsfw install --help
+nsfw search --help
+nsfw config --help
+
+# Main help shows all commands
+nsfw --help
+```
+
+**What you'll see in help messages:**
+- 📚 **Practical examples**: Real-world usage patterns for each command
+- 💡 **Tips and best practices**: Learn when and how to use features
+- 🔄 **Alias information**: Discover command shortcuts
+- ⚙️ **All options explained**: Every flag and argument documented
+- 🎯 **Use case scenarios**: Understand common workflows
+
+**Example help output:**
+```
+Install one or more packages from nixpkgs.
+
+Packages are installed into your WSL2/Nix environment and wrapper scripts
+are automatically generated in Windows for easy access.
+
+EXAMPLES:
+    # Install a single package
+    nsfw install firefox
+
+    # Install multiple packages at once
+    nsfw install python3 nodejs git
+
+    # Skip confirmation prompt
+    nsfw install vim --yes
+
+    # Preview what would be installed (dry-run)
+    nsfw install chromium --dry-run
+```
+
+**Benefits:**
+- 🚀 **Faster learning**: See examples without leaving terminal
+- 📖 **Self-documenting**: No need for external documentation
+- 🎨 **Discover features**: Learn about batch operations, dry-run, etc.
+- ✅ **Reduce errors**: Copy-paste working examples
 
 ### System Diagnostics
 

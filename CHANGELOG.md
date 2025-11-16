@@ -190,6 +190,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Logs timing in debug mode
   - Infrastructure ready for wider use across commands
 
+#### Phase 13: Batch Package Operations
+- **Multiple Package Arguments** - Install or remove many packages at once
+  - Modified `install` and `remove` commands to accept `Vec<String>`
+  - Backward compatible: single package still works
+  - Natural CLI syntax: `nsfw install pkg1 pkg2 pkg3`
+  - Required argument with validation
+
+- **Batch Installation** - `install_batch()` function
+  - Single WSL2 connection for efficiency (vs multiple commands)
+  - Single Nix availability check upfront
+  - Per-package installation with individual error handling
+  - Graceful partial failure: continues with remaining packages
+  - Detailed progress: spinner for each package
+  - Result tracking: succeeded, already installed, failed
+  - Transaction summary at end with counts
+  - Failed package list with error messages
+
+- **Batch Removal** - `remove_batch()` function
+  - Single WSL2 connection for efficiency
+  - Single Nix availability check upfront
+  - Per-package removal with individual error handling
+  - Graceful partial failure: continues with remaining packages
+  - Detailed progress: spinner for each package
+  - Result tracking: succeeded, not installed, failed
+  - Transaction summary at end with counts
+  - Failed package list with error messages
+
+- **Enhanced Dry-Run Support**
+  - Shows all packages in list format for batch operations
+  - Numbered list of packages to be processed
+  - Clear action breakdown for batch context
+  - Same helpful messaging and formatting
+
+- **Shell Completion Updates**
+  - PowerShell: Updated descriptions to reflect "one or more packages"
+  - Bash/Zsh/Fish: Already support multiple arguments naturally
+  - All completions continue to suggest packages appropriately
+
+- **User Experience Improvements**
+  - Examples:
+    - `nsfw install python3 nodejs git vim`
+    - `nsfw remove rust cargo cmake`
+    - `nsfw install firefox chromium --yes`
+    - `nsfw remove pkg1 pkg2 pkg3 --dry-run`
+  - Significant time savings for multi-package workflows
+  - Reduced overhead: one confirmation, one connection
+  - Better visibility: transaction summary shows overall results
+
+#### Phase 14: Comprehensive Help System with Examples
+- **Enhanced Command Documentation** - All commands now have detailed help
+  - Added `#[command(long_about = "...")]` to all major commands
+  - Each command shows practical examples
+  - Tips and best practices included
+  - Common use cases documented
+  - Subcommand overviews for cache and config
+
+- **Commands with Enhanced Help**
+  - **search** - Fuzzy matching examples, format options, limit usage
+  - **install** - Single and batch installation, dry-run, alias info
+  - **remove** - Single and batch removal, dry-run, alias info
+  - **list** - Output formats, detailed mode, alias
+  - **info** - Basic usage examples
+  - **update** - Best practice tips (run weekly)
+  - **setup** - Interactive vs auto-yes modes
+  - **cache** - Subcommand overview (stats, clear, rebuild)
+  - **doctor** - Diagnostic usage and tips
+  - **completion** - Supported shells with examples
+  - **config** - Comprehensive subcommand guide with examples
+  - **upgrade** - Single package and bulk upgrade scenarios
+  - **export** - Backup and sharing use cases
+  - **import** - Restore and setup scenarios
+
+- **Help Message Features**
+  - Multi-line descriptions with clear formatting
+  - Real command examples users can copy-paste
+  - Contextual tips (e.g., "Run 'nsfw update' before upgrading")
+  - Highlights batch operation capabilities
+  - Shows relationship between commands and aliases
+  - Explains subcommand structure clearly
+
+- **User Experience Benefits**
+  - Self-documenting CLI: no need for external docs
+  - Faster learning curve for new users
+  - Discover features (batch ops, dry-run) from help
+  - Reduces errors through working examples
+  - Copy-paste examples for quick usage
+
 #### Phase 4: System Diagnostics & Enhanced Error Handling
 - **`doctor` command** - Comprehensive system health checks
   - WSL2 availability and version detection
@@ -229,8 +316,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Documentation
 - Comprehensive README.md update with all v0.3.0 features
-- Added documentation for all Phases 4-11
-- Updated badges: version 0.3.0, 133 passing tests
+- Added documentation for all Phases 4-14
+- Updated badges: version 0.3.0, 140 passing tests
+- Added batch operations examples and features
+- Added comprehensive help system section
 - Added fuzzy search examples and features
 - Added logging & verbose mode section
 - Enhanced shell completion documentation (all 4 shells)
@@ -240,7 +329,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated project structure to show all new modules
 
 #### Testing
-- All 133 tests passing (+19 new tests across logging and performance modules)
+- All 140 tests passing (+26 new tests across logging, performance, and batch operations modules)
 - Test coverage maintained for new features
 - Added comprehensive config module tests (13 tests)
 - Added logging module tests (6 tests)
@@ -270,10 +359,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `completions/nsfw.zsh` - Zsh completion script (210 lines)
 - `completions/nsfw.fish` - Fish completion script (115 lines)
 
-#### Files Modified (12 files)
+#### Files Modified (13 files)
 - `Cargo.toml` - Version 0.3.0 + new dependencies (toml, fuzzy-matcher)
-- `src/main.rs` - New command enums, --dry-run flags, --log-file flag, logging integration
-- `src/cli/commands.rs` - New commands, dry-run logic, fuzzy search, performance timing (+1200 lines)
+- `src/main.rs` - New command enums, --dry-run flags, --log-file flag, logging integration, Vec<String> for batch ops, comprehensive help messages (+240 lines)
+- `src/cli/commands.rs` - New commands, dry-run logic, fuzzy search, performance timing, install_batch(), remove_batch() (+1425 lines)
 - `src/lib.rs` - Export config, logging, and performance modules
 - `src/package_cache/mod.rs` - Added fuzzy_search() method
 - `src/path_translation/translator.rs` - Made PathTranslator Clone-able
@@ -281,13 +370,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `completions/nsfw.bash` - Added --dry-run, --fuzzy, --log-file flags
 - `completions/nsfw.zsh` - Added --dry-run, --fuzzy, --log-file flags
 - `completions/nsfw.fish` - Added --dry-run, --fuzzy, --log-file flags
-- `completions/nsfw.ps1` - Comprehensive v0.3.0 update with all new commands and flags
-- `README.md` - Comprehensive documentation updates for Phases 8-11
+- `completions/nsfw.ps1` - Comprehensive v0.3.0 update with all new commands, flags, and batch operation descriptions
+- `README.md` - Comprehensive documentation updates for Phases 8-14, batch operations, comprehensive help
+- `CHANGELOG.md` - Detailed documentation of Phases 13-14
 
 #### Code Statistics
-- +2,200+ lines of production code (all phases combined)
-- +19 new tests (logging: 6, performance: 6, config: 13)
-- 133/133 tests passing
+- +2,700+ lines of production code (all phases combined)
+- +26 new tests (logging: 6, performance: 6, config: 13)
+- 140/140 tests passing
 - 0 compiler warnings
 - 0 clippy warnings
 - Clean release builds
@@ -295,6 +385,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🚀 Impact
 
 **For Users:**
+- **Batch operations** install/remove multiple packages in one command - huge time savings
+- **Comprehensive help** with examples for every command - faster learning, fewer errors
 - Customize NSFW behavior via config file
 - Easy package backup and restore workflow
 - Keep all packages up to date with one command
@@ -306,6 +398,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Professional logging** for debugging and troubleshooting
 - **File logging** for detailed diagnostics
 - **Performance visibility** with operation timing
+- **Self-documenting CLI** - no need for external documentation
 - Verify operations before executing them
 
 **For Developers:**
