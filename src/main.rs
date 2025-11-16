@@ -261,6 +261,38 @@ EXAMPLES:
 TIP: Run this if you're experiencing issues with NSFW.")]
     Doctor,
 
+    /// View installation history
+    #[command(long_about = "View the history of package installations and removals.
+
+Tracks all package operations including successful installs, removals,
+and any failures. Useful for debugging and auditing package changes.
+
+EXAMPLES:
+    # View recent history (last 20 operations)
+    nsfw history
+
+    # View last 50 operations
+    nsfw history --limit 50
+
+    # View history for a specific package
+    nsfw history --package firefox
+
+    # Show detailed statistics
+    nsfw history --stats")]
+    History {
+        /// Maximum number of entries to show
+        #[arg(short, long, default_value_t = 20)]
+        limit: usize,
+
+        /// Show history for a specific package
+        #[arg(short, long)]
+        package: Option<String>,
+
+        /// Show statistics instead of history entries
+        #[arg(short, long)]
+        stats: bool,
+    },
+
     /// Install shell completions
     #[command(long_about = "Install tab completion for your shell.
 
@@ -506,6 +538,9 @@ fn main() {
         }
         Commands::Doctor => {
             cli::commands::doctor()
+        }
+        Commands::History { limit, package, stats } => {
+            cli::commands::history(limit, package.as_deref(), stats)
         }
         Commands::Completion { shell } => {
             cli::commands::install_completion(&shell)

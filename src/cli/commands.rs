@@ -356,6 +356,8 @@ pub fn remove(package: &str, yes: bool, dry_run: bool) -> Result<()> {
 
 /// Install multiple packages at once
 pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()> {
+    use crate::package_cache::{PackageCache, HistoryAction};
+
     if dry_run {
         eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would install {} package(s)", packages.len())));
         eprintln!();
@@ -388,6 +390,12 @@ pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()
     let progress = ProgressIndicator::spinner("Connecting to WSL2...");
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
+
+    // Initialize cache for history tracking
+    let cache = PackageCache::new().ok();
+    if let Some(ref cache) = cache {
+        let _ = cache.initialize();
+    }
 
     // Check if Nix is available
     progress.set_message("Checking Nix availability...");
@@ -439,11 +447,18 @@ pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()
                 progress.finish_and_clear();
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("✓ Successfully installed '{}'", package)));
                 success_count += 1;
+
+                // Record successful installation in history
+                if let Some(ref cache) = cache {
+                    let _ = cache.record_history(HistoryAction::Install, package, None, true, None);
+                }
             }
             Err(NixError::AlreadyInstalled(_)) => {
                 progress.finish_and_clear();
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Info, &format!("→ Package '{}' is already installed", package)));
                 already_installed_count += 1;
+
+                // Don't record already-installed as history (it's not a real operation)
             }
             Err(e) => {
                 progress.finish_and_clear();
@@ -451,6 +466,12 @@ pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()
                     &format!("✗ Installation of '{}' failed: {}", package, e),
                     "Continuing with remaining packages..."
                 ));
+
+                // Record failed installation in history
+                if let Some(ref cache) = cache {
+                    let _ = cache.record_history(HistoryAction::Install, package, None, false, Some(&e.to_string()));
+                }
+
                 failed_packages.push((package.clone(), e.to_string()));
             }
         }
@@ -483,6 +504,8 @@ pub fn install_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()
 
 /// Remove multiple packages at once
 pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()> {
+    use crate::package_cache::{PackageCache, HistoryAction};
+
     if dry_run {
         eprintln!("{}", OutputFormatter::format_section(&format!("DRY RUN: Would remove {} package(s)", packages.len())));
         eprintln!();
@@ -515,6 +538,12 @@ pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()>
     let progress = ProgressIndicator::spinner("Connecting to WSL2...");
     let bridge = RealWSL2Bridge::new();
     let executor = BridgedNixExecutor::new(bridge);
+
+    // Initialize cache for history tracking
+    let cache = PackageCache::new().ok();
+    if let Some(ref cache) = cache {
+        let _ = cache.initialize();
+    }
 
     // Check if Nix is available
     progress.set_message("Checking Nix availability...");
@@ -566,11 +595,18 @@ pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()>
                 progress.finish_and_clear();
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Success, &format!("✓ Successfully removed '{}'", package)));
                 success_count += 1;
+
+                // Record successful removal in history
+                if let Some(ref cache) = cache {
+                    let _ = cache.record_history(HistoryAction::Remove, package, None, true, None);
+                }
             }
             Err(NixError::NotInstalled(_)) => {
                 progress.finish_and_clear();
                 eprintln!("{}", OutputFormatter::format_message(MessageType::Warning, &format!("→ Package '{}' is not installed", package)));
                 not_installed_count += 1;
+
+                // Don't record not-installed as history (it's not a real operation)
             }
             Err(e) => {
                 progress.finish_and_clear();
@@ -578,6 +614,12 @@ pub fn remove_batch(packages: &[String], yes: bool, dry_run: bool) -> Result<()>
                     &format!("✗ Removal of '{}' failed: {}", package, e),
                     "Continuing with remaining packages..."
                 ));
+
+                // Record failed removal in history
+                if let Some(ref cache) = cache {
+                    let _ = cache.record_history(HistoryAction::Remove, package, None, false, Some(&e.to_string()));
+                }
+
                 failed_packages.push((package.clone(), e.to_string()));
             }
         }
@@ -1333,6 +1375,160 @@ pub fn cache_rebuild() -> Result<()> {
             Err(e)
         }
     }
+}
+
+pub fn history(limit: usize, package_filter: Option<&str>, show_stats: bool) -> Result<()> {
+    use crate::package_cache::HistoryAction;
+
+    let cache = PackageCache::new()?;
+    cache.initialize()?;
+
+    if show_stats {
+        // Show statistics instead of history entries
+        eprintln!("{}", OutputFormatter::format_section("Installation History Statistics"));
+
+        let stats = cache.get_history_stats()?;
+
+        if stats.total_operations == 0 {
+            eprintln!();
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Info,
+                "No installation history recorded yet."
+            ));
+            return Ok(());
+        }
+
+        // Calculate success rate
+        let success_rate = if stats.total_operations > 0 {
+            (stats.successful_operations as f64 / stats.total_operations as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        // Format last operation time
+        let last_op_str = if let Some(last_op) = stats.last_operation {
+            let now = chrono::Utc::now().timestamp();
+            let age_secs = now - last_op;
+
+            if age_secs < 60 {
+                format!("{} seconds ago", age_secs)
+            } else if age_secs < 3600 {
+                format!("{} minutes ago", age_secs / 60)
+            } else if age_secs < 86400 {
+                format!("{} hours ago", age_secs / 3600)
+            } else {
+                format!("{} days ago", age_secs / 86400)
+            }
+        } else {
+            "Never".to_string()
+        };
+
+        eprintln!("\n{}", "  Summary".bright_white().bold());
+        eprintln!("  {}", "─".repeat(58).bright_black());
+        eprintln!("  {:<20} {}", "Total Operations:".bright_white(),
+            stats.total_operations.to_string().bright_cyan());
+        eprintln!("  {:<20} {} ({})",
+            "Successful:".bright_white(),
+            stats.successful_operations.to_string().bright_green(),
+            format!("{:.1}%", success_rate).bright_green());
+        eprintln!("  {:<20} {}", "Failed:".bright_white(),
+            stats.failed_operations.to_string().bright_red());
+        eprintln!("  {:<20} {}", "Last Operation:".bright_white(),
+            last_op_str.bright_cyan());
+
+        eprintln!("\n{}", "  Operations by Type".bright_white().bold());
+        eprintln!("  {}", "─".repeat(58).bright_black());
+        eprintln!("  {:<20} {}", "Installs:".bright_white(),
+            stats.total_installs.to_string().bright_cyan());
+        eprintln!("  {:<20} {}", "Removals:".bright_white(),
+            stats.total_removes.to_string().bright_cyan());
+
+        eprintln!();
+        return Ok(());
+    }
+
+    // Show history entries
+    let entries = if let Some(pkg) = package_filter {
+        eprintln!("{}", OutputFormatter::format_section(&format!("Installation History for '{}'", pkg)));
+        cache.get_package_history(pkg, limit)?
+    } else {
+        eprintln!("{}", OutputFormatter::format_section("Installation History"));
+        cache.get_history(limit)?
+    };
+
+    if entries.is_empty() {
+        eprintln!();
+        if let Some(pkg) = package_filter {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Info,
+                &format!("No history found for package '{}'", pkg)
+            ));
+        } else {
+            eprintln!("{}", OutputFormatter::format_message(
+                MessageType::Info,
+                "No installation history recorded yet."
+            ));
+        }
+        return Ok(());
+    }
+
+    eprintln!("\n{} recent operation(s):", entries.len());
+    eprintln!();
+
+    for entry in &entries {
+        // Format timestamp
+        let dt = chrono::DateTime::from_timestamp(entry.timestamp, 0)
+            .unwrap_or_else(|| chrono::DateTime::UNIX_EPOCH);
+        let time_str = dt.format("%Y-%m-%d %H:%M:%S").to_string();
+
+        // Format action with color and emoji
+        let (action_display, action_emoji) = match entry.action {
+            HistoryAction::Install => (entry.action.as_str().bright_green(), "📦"),
+            HistoryAction::Remove => (entry.action.as_str().bright_red(), "🗑️"),
+            HistoryAction::Upgrade => (entry.action.as_str().bright_yellow(), "⬆️"),
+            HistoryAction::Update => (entry.action.as_str().bright_blue(), "🔄"),
+        };
+
+        // Format status
+        let status_display = if entry.success {
+            "✓".bright_green()
+        } else {
+            "✗".bright_red()
+        };
+
+        // Print entry
+        eprintln!("  {} {} {} {} {}",
+            time_str.bright_black(),
+            action_emoji,
+            action_display,
+            entry.package_name.bright_white().bold(),
+            status_display
+        );
+
+        // Show version if available
+        if let Some(ref version) = entry.version {
+            eprintln!("       {} {}", "version:".bright_black(), version.bright_cyan());
+        }
+
+        // Show error message if failed
+        if !entry.success {
+            if let Some(ref err_msg) = entry.error_message {
+                eprintln!("       {} {}", "error:".bright_red(), err_msg.bright_black());
+            }
+        }
+
+        eprintln!();
+    }
+
+    // Show hint for more results
+    if entries.len() == limit && package_filter.is_none() {
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Info,
+            &format!("Showing last {} operations. Use --limit to show more.", limit)
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn doctor() -> Result<()> {

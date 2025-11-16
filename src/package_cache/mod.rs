@@ -101,6 +101,26 @@ impl PackageCache {
             [],
         ).context("Failed to create metadata table")?;
 
+        // Installation history table
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                package_name TEXT NOT NULL,
+                version TEXT,
+                success INTEGER NOT NULL,
+                error_message TEXT
+            )",
+            [],
+        ).context("Failed to create history table")?;
+
+        // Create index on timestamp for fast history queries
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC)",
+            [],
+        ).context("Failed to create history timestamp index")?;
+
         info!("Package cache database initialized");
         Ok(())
     }
@@ -433,6 +453,167 @@ impl PackageCache {
         let effectiveness = (stats.packages_with_searches as f64 / stats.total_packages as f64) * 100.0;
         Ok(effectiveness)
     }
+
+    /// Record an installation history entry
+    pub fn record_history(
+        &self,
+        action: HistoryAction,
+        package_name: &str,
+        version: Option<&str>,
+        success: bool,
+        error_message: Option<&str>,
+    ) -> Result<()> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        let timestamp = chrono::Utc::now().timestamp();
+
+        conn.execute(
+            "INSERT INTO history (timestamp, action, package_name, version, success, error_message)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                timestamp,
+                action.as_str(),
+                package_name,
+                version,
+                success as i32,
+                error_message,
+            ],
+        ).context("Failed to record history entry")?;
+
+        debug!("Recorded {} action for package '{}'", action.as_str(), package_name);
+        Ok(())
+    }
+
+    /// Get recent installation history
+    pub fn get_history(&self, limit: usize) -> Result<Vec<HistoryEntry>> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, timestamp, action, package_name, version, success, error_message
+             FROM history
+             ORDER BY timestamp DESC
+             LIMIT ?1"
+        ).context("Failed to prepare history query")?;
+
+        let entries = stmt.query_map(params![limit as i32], |row| {
+            let action_str: String = row.get(2)?;
+            let action = HistoryAction::from_str(&action_str)
+                .unwrap_or(HistoryAction::Install);
+
+            Ok(HistoryEntry {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                action,
+                package_name: row.get(3)?,
+                version: row.get(4)?,
+                success: row.get::<_, i32>(5)? != 0,
+                error_message: row.get(6)?,
+            })
+        }).context("Failed to execute history query")?
+          .collect::<SqlResult<Vec<_>>>()
+          .context("Failed to collect history entries")?;
+
+        Ok(entries)
+    }
+
+    /// Get installation history for a specific package
+    pub fn get_package_history(&self, package_name: &str, limit: usize) -> Result<Vec<HistoryEntry>> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, timestamp, action, package_name, version, success, error_message
+             FROM history
+             WHERE package_name = ?1
+             ORDER BY timestamp DESC
+             LIMIT ?2"
+        ).context("Failed to prepare package history query")?;
+
+        let entries = stmt.query_map(params![package_name, limit as i32], |row| {
+            let action_str: String = row.get(2)?;
+            let action = HistoryAction::from_str(&action_str)
+                .unwrap_or(HistoryAction::Install);
+
+            Ok(HistoryEntry {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                action,
+                package_name: row.get(3)?,
+                version: row.get(4)?,
+                success: row.get::<_, i32>(5)? != 0,
+                error_message: row.get(6)?,
+            })
+        }).context("Failed to execute package history query")?
+          .collect::<SqlResult<Vec<_>>>()
+          .context("Failed to collect history entries")?;
+
+        Ok(entries)
+    }
+
+    /// Get history statistics
+    pub fn get_history_stats(&self) -> Result<HistoryStats> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        let total_operations: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM history",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let successful_operations: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM history WHERE success = 1",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let failed_operations: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM history WHERE success = 0",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let total_installs: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM history WHERE action = 'install' AND success = 1",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let total_removes: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM history WHERE action = 'remove' AND success = 1",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let last_operation: Option<i64> = conn.query_row(
+            "SELECT MAX(timestamp) FROM history",
+            [],
+            |row| row.get(0)
+        ).ok();
+
+        Ok(HistoryStats {
+            total_operations,
+            successful_operations,
+            failed_operations,
+            total_installs,
+            total_removes,
+            last_operation,
+        })
+    }
+
+    /// Clear installation history
+    pub fn clear_history(&self) -> Result<()> {
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        conn.execute("DELETE FROM history", [])
+            .context("Failed to clear history")?;
+
+        info!("Installation history cleared");
+        Ok(())
+    }
 }
 
 impl Default for PackageCache {
@@ -461,6 +642,59 @@ pub enum CacheHealth {
     Good,       // 7-30 days
     Stale,      // 30-90 days
     Outdated,   // > 90 days
+}
+
+/// Installation action type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HistoryAction {
+    Install,
+    Remove,
+    Upgrade,
+    Update,
+}
+
+impl HistoryAction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            HistoryAction::Install => "install",
+            HistoryAction::Remove => "remove",
+            HistoryAction::Upgrade => "upgrade",
+            HistoryAction::Update => "update",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "install" => Some(HistoryAction::Install),
+            "remove" => Some(HistoryAction::Remove),
+            "upgrade" => Some(HistoryAction::Upgrade),
+            "update" => Some(HistoryAction::Update),
+            _ => None,
+        }
+    }
+}
+
+/// Installation history entry
+#[derive(Debug, Clone)]
+pub struct HistoryEntry {
+    pub id: i64,
+    pub timestamp: i64,
+    pub action: HistoryAction,
+    pub package_name: String,
+    pub version: Option<String>,
+    pub success: bool,
+    pub error_message: Option<String>,
+}
+
+/// Installation history statistics
+#[derive(Debug, Clone)]
+pub struct HistoryStats {
+    pub total_operations: i32,
+    pub successful_operations: i32,
+    pub failed_operations: i32,
+    pub total_installs: i32,
+    pub total_removes: i32,
+    pub last_operation: Option<i64>,
 }
 
 #[cfg(test)]
