@@ -25,5 +25,8 @@ pub mod config;
 // Logging module
 pub mod logging;
 
+// Performance metrics module
+pub mod performance;
+
 // Re-export CLI module for internal use
 pub mod cli;

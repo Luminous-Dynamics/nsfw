@@ -62,6 +62,11 @@ fn spawn_cache_update_if_needed(cache: PackageCache) {
 }
 
 pub fn search(query: &str, limit: usize, format: &str, fuzzy: bool) -> Result<()> {
+    use crate::performance::PerformanceTimer;
+
+    // Start timing
+    let timer = PerformanceTimer::start("search");
+
     // Show search header
     eprintln!("{}", OutputFormatter::format_section(&format!("Searching for '{}'", query)));
 
@@ -99,6 +104,7 @@ pub fn search(query: &str, limit: usize, format: &str, fuzzy: bool) -> Result<()
             // Start background cache update if needed
             spawn_cache_update_if_needed(pkg_cache);
 
+            timer.finish();
             return Ok(());
         } else {
             log::debug!("No results in package cache, falling back to Nix search");
