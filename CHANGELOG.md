@@ -341,6 +341,110 @@ Installing 'nodejs'...
   - Validates error categorization is correct
   - Tests realistic multi-package scenarios
 
+#### Phase 19: Enhanced Error Messages with Comprehensive Recovery
+- **New Error Types** - 5 additional error variants for common scenarios
+  - `Timeout(u64)` - Operation timeouts with duration tracking
+  - `DiskSpaceLow(String)` - Insufficient disk space errors
+  - `PackageConflict(String)` - Package dependency conflicts
+  - `WSL2DistroNotFound(String)` - Missing WSL2 distribution errors
+  - `ChannelUpdateRequired` - Outdated Nix channels
+
+- **Context-Aware Error Suggestions**
+  - **NetworkError**: Detects timeout vs refused vs general network issues
+    - Timeout: "ping google.com", "wsl ping google.com", firewall checks
+    - Refused: WSL2 restart commands, network configuration checks
+    - General: Internet testing, VPN troubleshooting
+  - **PackageNotFound**: Step-by-step troubleshooting with real examples
+    - Fuzzy search suggestions
+    - Alternative package names (python → python3)
+    - Update database command
+    - Direct search URL with query
+  - **AlreadyInstalled**: Clear action options
+    - Skip (already available)
+    - Upgrade command
+    - Reinstall procedure (remove + install)
+  - **NotInstalled**: Actionable next steps
+    - List installed packages
+    - Search for package
+    - Install command ready to use
+
+- **Comprehensive Installation Guidance**
+  - **NixNotInstalled**:
+    - EASY METHOD: nsfw setup (recommended)
+    - MANUAL METHOD: Step-by-step WSL2 + Nix install
+    - Verification commands
+  - **WSL2NotAvailable**:
+    - EASY METHOD: nsfw setup
+    - MANUAL METHOD: PowerShell commands, restart, Ubuntu setup
+    - TROUBLESHOOTING: BIOS virtualization, Windows version, status check
+
+- **Smart Error Recovery**
+  - **CacheError**: Context detection (corruption vs general)
+    - Corruption: Clear → Rebuild → Update
+    - General: Disk space → Clear → Rebuild → Permissions
+  - **PermissionDenied**: Environment-specific fixes
+    - WSL2: Restart WSL2, ownership checks, diagnostics
+    - General: Administrator mode, permissions, antivirus, WSL2 access
+  - **Timeout**: Cause analysis and solutions
+    - Slow internet, large packages, WSL2 performance
+    - Network speed check, retry logic, WSL2 restart
+  - **DiskSpaceLow**: Multiple cleanup strategies
+    - NSFW cache clear
+    - Remove unused packages
+    - WSL2 garbage collection
+    - Windows disk cleanup
+    - Disk space check command
+
+- **New Error Guidance**
+  - **PackageConflict**: Resolution options
+    - Remove conflicting package
+    - Upgrade approach
+    - Force flag information
+    - Dependency checking
+  - **WSL2DistroNotFound**: Distribution management
+    - List distributions
+    - Install Ubuntu
+    - Set default distribution
+    - Setup wizard
+  - **ChannelUpdateRequired**: Update benefits
+    - Latest package versions
+    - Security updates
+    - Bug fixes
+    - New packages access
+  - **InvalidPackageName**: Format rules
+    - Character restrictions
+    - Naming conventions
+    - Valid examples
+
+- **Enhanced Help URLs** - 7 error types now return helpful URLs
+  - Dynamic package search URLs with query parameter
+  - Network troubleshooting resources
+  - Channel management documentation
+  - Garbage collection guides
+  - WSL2 troubleshooting for all WSL2-related errors
+  - Nix installation guides
+
+- **User Experience Improvements**
+  - Errors guide users to solutions (not just report problems)
+  - Clear distinction between easy and manual methods
+  - Numbered steps for complex procedures
+  - Bullet points for quick reference
+  - Real command examples ready to copy-paste
+  - Diagnostic commands for troubleshooting
+  - Related commands suggested for each error
+  - Alternative approaches for different scenarios
+
+**Example Enhanced Error:**
+```
+PackageNotFound("vim")
+
+Troubleshooting steps:
+1. Search with fuzzy matching: nsfw search vim
+2. Try alternative names (e.g., 'python' → 'python3', 'node' → 'nodejs')
+3. Update package database: nsfw update
+4. Search online: https://search.nixos.org/packages?query=vim
+```
+
 #### Phase 4: System Diagnostics & Enhanced Error Handling
 - **`doctor` command** - Comprehensive system health checks
   - WSL2 availability and version detection
@@ -380,10 +484,11 @@ Installing 'nodejs'...
 
 #### Documentation
 - Comprehensive README.md update with all v0.3.0 features
-- Added documentation for all Phases 4-17
+- Added documentation for all Phases 4-19
 - Updated badges: version 0.3.0, 175 passing tests
 - Added batch operations examples and features
 - Added enhanced progress reporting documentation
+- Added enhanced error handling documentation
 - Added comprehensive help system section
 - Added fuzzy search examples and features
 - Added logging & verbose mode section
@@ -428,10 +533,11 @@ Installing 'nodejs'...
 - `completions/nsfw.zsh` - Zsh completion script (210 lines)
 - `completions/nsfw.fish` - Fish completion script (115 lines)
 
-#### Files Modified (14 files)
+#### Files Modified (15 files)
 - `Cargo.toml` - Version 0.3.0 + new dependencies (toml, fuzzy-matcher)
 - `src/main.rs` - New command enums, --dry-run flags, --log-file flag, logging integration, Vec<String> for batch ops, comprehensive help messages (+240 lines)
 - `src/cli/commands.rs` - New commands, dry-run logic, fuzzy search, performance timing, install_batch(), remove_batch(), enhanced progress reporting (+1455 lines)
+- `src/nix_ops/errors.rs` - 5 new error types, comprehensive recovery suggestions, context-aware help, enhanced URLs (+207 lines)
 - `src/lib.rs` - Export config, logging, and performance modules
 - `src/package_cache/mod.rs` - Added fuzzy_search() method
 - `src/path_translation/translator.rs` - Made PathTranslator Clone-able
@@ -441,11 +547,11 @@ Installing 'nodejs'...
 - `completions/nsfw.fish` - Added --dry-run, --fuzzy, --log-file flags
 - `completions/nsfw.ps1` - Comprehensive v0.3.0 update with all new commands, flags, and batch operation descriptions
 - `tests/integration_tests.rs` - Added 6 comprehensive batch operation tests (+251 lines)
-- `README.md` - Comprehensive documentation updates for Phases 8-17, batch operations, enhanced progress, comprehensive help
-- `CHANGELOG.md` - Detailed documentation of Phases 13-17
+- `README.md` - Comprehensive documentation updates for Phases 8-19, batch operations, enhanced progress, comprehensive help, error handling
+- `CHANGELOG.md` - Detailed documentation of Phases 13-19
 
 #### Code Statistics
-- +2,980+ lines of production code (all phases combined)
+- +3,187+ lines of production code (all phases combined)
 - +61 new tests (logging: 6, performance: 6, config: 13, batch integration: 6, other: 30)
 - 175/175 tests passing (140 lib + 16 edge + 19 integration)
 - 0 compiler warnings
@@ -459,6 +565,8 @@ Installing 'nodejs'...
 - **Enhanced progress reporting** shows exactly where you are: [3/5] 60% complete
 - **Visual progress indicators** with emojis and separators for professional feel
 - **Comprehensive help** with examples for every command - faster learning, fewer errors
+- **Intelligent error messages** guide you to solutions with step-by-step recovery
+- **Context-aware troubleshooting** detects specific error scenarios and provides targeted fixes
 - Customize NSFW behavior via config file
 - Easy package backup and restore workflow
 - Keep all packages up to date with one command
@@ -473,6 +581,7 @@ Installing 'nodejs'...
 - **Self-documenting CLI** - no need for external documentation
 - Verify operations before executing them
 - **Real-time feedback** during batch operations with clear visibility
+- **Self-service troubleshooting** - fix common issues without external help
 
 **For Developers:**
 - Professional error handling throughout application
