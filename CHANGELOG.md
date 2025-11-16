@@ -9,6 +9,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎉 Added
 
+#### Phase 21: Installation History Tracking
+- **Installation History Database** - Complete audit trail
+  - SQLite table tracking all package operations
+  - Records: timestamp, action, package name, version, success/failure, errors
+  - Indexed by timestamp for fast queries
+  - Separate from package cache (can be cleared independently)
+
+- **`history` command** - View operation timeline
+  - Default: Show last 20 operations with timestamps
+  - `--limit N` - Show last N operations
+  - `--package NAME` - Filter history for specific package
+  - `--stats` - Show aggregated statistics
+  - Rich visual output:
+    * Emoji indicators (📦 install, 🗑️ remove, ⬆️ upgrade, 🔄 update)
+    * Color-coded actions (green install, red remove, yellow upgrade, blue update)
+    * Success/failure indicators (✓ success, ✗ failure)
+    * Formatted timestamps (YYYY-MM-DD HH:MM:SS)
+    * Error messages for failed operations
+    * Version information when available
+
+- **History Statistics** (`nsfw history --stats`)
+  - Total operations with success rate percentage
+  - Successful vs failed operations breakdown
+  - Operations by type (installs, removals)
+  - Last operation timestamp (human-readable format)
+  - Visual sections with separators
+
+- **Automatic History Recording**
+  - All `install` operations tracked automatically
+  - All `remove` operations tracked automatically
+  - Records both successes and failures
+  - Includes full error messages for debugging
+  - Non-blocking: history failures don't break operations
+
+- **Per-Package Timeline**
+  - `nsfw history --package firefox` shows all operations for Firefox
+  - Useful for troubleshooting package-specific issues
+  - Chronological view of install/remove cycles
+
+**Benefits:**
+- Complete audit trail of all package changes
+- Easy troubleshooting with error history
+- Per-package operation timeline helps identify problematic packages
+- Success/failure analytics for reliability monitoring
+- Essential for debugging installation issues
+
+**Technical Details:**
+- 465 lines added across 3 files
+- New structures: HistoryAction, HistoryEntry, HistoryStats
+- 7 new PackageCache methods for history management
+- Integrated into install_batch() and remove_batch()
+
+#### Phase 20: Enhanced Cache Statistics and Health Monitoring
+- **Cache Health Status** - Intelligent health assessment
+  - Empty: No packages cached
+  - Fresh: < 7 days old (✓ optimal)
+  - Good: 7-30 days old (no action needed)
+  - Stale: 30-90 days old (⚠ update recommended)
+  - Outdated: > 90 days old (⚠ rebuild recommended)
+  - Color-coded status indicators
+
+- **Enhanced `cache stats` command** - Comprehensive metrics
+  - **Overview Section:**
+    * Health status with color coding
+    * Total packages count
+    * Database size (KB/MB formatting)
+    * Last updated timestamp (human-readable)
+
+  - **Usage Statistics:**
+    * Total searches performed
+    * Packages searched (X / Y format)
+    * Cache effectiveness percentage
+    * Average searches per package
+
+  - **Cache Details:**
+    * Average description length
+    * Cache age range (if packages have different timestamps)
+    * Cache location path
+
+  - **Most Searched Packages:**
+    * Top 10 packages (increased from 5)
+    * Search count for each package
+    * Ranked display
+
+- **Context-Aware Recommendations**
+  - Empty cache: Suggests `nsfw search` or `nsfw cache rebuild`
+  - Fresh cache: Confirms optimal state
+  - Good cache: No action needed
+  - Stale cache: Recommends `nsfw update`
+  - Outdated cache: Warns and recommends `nsfw cache rebuild`
+  - Underutilization tip: Shows if cache effectiveness < 1%
+
+- **Enhanced Statistics**
+  - CacheStats expanded: 2 fields → 7 fields
+    * packages_with_searches
+    * total_searches
+    * average_description_length
+    * oldest_package timestamp
+    * newest_package timestamp
+  - New methods: `get_health()`, `get_effectiveness()`
+  - 7 SQL queries for comprehensive data
+
+**Visual Improvements:**
+- Section headers with bold text
+- Horizontal separators (─ characters)
+- Aligned columns (20-char labels)
+- Color-coded values (cyan for numbers, green for positive, red for negative)
+- Clean hierarchy: Overview → Usage → Details → Popular Packages
+
+**Technical Details:**
+- 203 lines added across 2 files
+- Modified src/package_cache/mod.rs: Enhanced stats() method
+- Modified src/cli/commands.rs: Restructured cache_stats() output
+- CacheHealth enum with 5 states
+
 #### Phase 5A: Configuration System
 - **User Configuration File** - `~/.nswfrc` (TOML format)
   - 8 customizable settings for user preferences
