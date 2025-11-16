@@ -282,9 +282,44 @@ impl PackageCache {
             |row| row.get(0)
         ).ok();
 
+        let packages_with_searches: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM packages WHERE search_count > 0",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let total_searches: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(search_count), 0) FROM packages",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        let average_description_length: f64 = conn.query_row(
+            "SELECT COALESCE(AVG(LENGTH(description)), 0.0) FROM packages",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0.0);
+
+        let oldest_package: Option<i64> = conn.query_row(
+            "SELECT MIN(last_updated) FROM packages",
+            [],
+            |row| row.get(0)
+        ).ok();
+
+        let newest_package: Option<i64> = conn.query_row(
+            "SELECT MAX(last_updated) FROM packages",
+            [],
+            |row| row.get(0)
+        ).ok();
+
         Ok(CacheStats {
             total_packages,
             last_updated,
+            packages_with_searches,
+            total_searches,
+            average_description_length,
+            oldest_package,
+            newest_package,
         })
     }
 
@@ -360,6 +395,44 @@ impl PackageCache {
             Ok(None)
         }
     }
+
+    /// Get cache health status
+    pub fn get_health(&self) -> Result<CacheHealth> {
+        let stats = self.stats()?;
+
+        if stats.total_packages == 0 {
+            return Ok(CacheHealth::Empty);
+        }
+
+        if let Some(age_secs) = self.get_age_seconds()? {
+            let age_days = age_secs / 86400;
+
+            if age_days < 7 {
+                Ok(CacheHealth::Fresh)
+            } else if age_days < 30 {
+                Ok(CacheHealth::Good)
+            } else if age_days < 90 {
+                Ok(CacheHealth::Stale)
+            } else {
+                Ok(CacheHealth::Outdated)
+            }
+        } else {
+            Ok(CacheHealth::Empty)
+        }
+    }
+
+    /// Get cache effectiveness percentage (0-100)
+    /// Represents the percentage of packages that have been searched
+    pub fn get_effectiveness(&self) -> Result<f64> {
+        let stats = self.stats()?;
+
+        if stats.total_packages == 0 {
+            return Ok(0.0);
+        }
+
+        let effectiveness = (stats.packages_with_searches as f64 / stats.total_packages as f64) * 100.0;
+        Ok(effectiveness)
+    }
 }
 
 impl Default for PackageCache {
@@ -373,6 +446,21 @@ impl Default for PackageCache {
 pub struct CacheStats {
     pub total_packages: i32,
     pub last_updated: Option<i64>,
+    pub packages_with_searches: i32,
+    pub total_searches: i32,
+    pub average_description_length: f64,
+    pub oldest_package: Option<i64>,
+    pub newest_package: Option<i64>,
+}
+
+/// Cache health status
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CacheHealth {
+    Empty,
+    Fresh,      // < 7 days
+    Good,       // 7-30 days
+    Stale,      // 30-90 days
+    Outdated,   // > 90 days
 }
 
 #[cfg(test)]

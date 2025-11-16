@@ -1065,6 +1065,8 @@ fn install_fish_completion() -> Result<()> {
 }
 
 pub fn cache_stats() -> Result<()> {
+    use crate::package_cache::CacheHealth;
+
     eprintln!("{}", OutputFormatter::format_section("Package Cache Statistics"));
 
     let cache = PackageCache::new()?;
@@ -1074,6 +1076,26 @@ pub fn cache_stats() -> Result<()> {
     let stats = cache.stats()?;
     let size = cache.get_size().unwrap_or(0);
     let age = cache.get_age_seconds()?;
+    let health = cache.get_health()?;
+    let effectiveness = cache.get_effectiveness()?;
+
+    // Format health status with color
+    let (health_text, health_color) = match health {
+        CacheHealth::Empty => ("Empty", "bright_red"),
+        CacheHealth::Fresh => ("Fresh", "bright_green"),
+        CacheHealth::Good => ("Good", "green"),
+        CacheHealth::Stale => ("Stale", "yellow"),
+        CacheHealth::Outdated => ("Outdated", "red"),
+    };
+
+    let health_display = match health_color {
+        "bright_green" => health_text.bright_green().to_string(),
+        "green" => health_text.green().to_string(),
+        "yellow" => health_text.yellow().to_string(),
+        "red" => health_text.red().to_string(),
+        "bright_red" => health_text.bright_red().to_string(),
+        _ => health_text.to_string(),
+    };
 
     // Format size nicely
     let size_mb = size as f64 / 1_048_576.0;
@@ -1098,22 +1120,65 @@ pub fn cache_stats() -> Result<()> {
         "Never".to_string()
     };
 
-    eprintln!("\n  {}: {}", "Total Packages".bright_white(), stats.total_packages.to_string().bright_cyan());
-    eprintln!("  {}: {}", "Database Size".bright_white(), size_str.bright_cyan());
-    eprintln!("  {}: {}", "Last Updated".bright_white(), age_str.bright_cyan());
-    eprintln!("  {}: {}", "Cache Location".bright_white(), cache.get_path().display().to_string().bright_black());
+    // === OVERVIEW SECTION ===
+    eprintln!("\n{}", "  Overview".bright_white().bold());
+    eprintln!("  {}", "─".repeat(58).bright_black());
+    eprintln!("  {:<20} {}", "Status:".bright_white(), health_display);
+    eprintln!("  {:<20} {}", "Total Packages:".bright_white(), stats.total_packages.to_string().bright_cyan());
+    eprintln!("  {:<20} {}", "Database Size:".bright_white(), size_str.bright_cyan());
+    eprintln!("  {:<20} {}", "Last Updated:".bright_white(), age_str.bright_cyan());
 
-    // Show popular packages if any
+    // === USAGE STATISTICS ===
     if stats.total_packages > 0 {
-        eprintln!();
-        if let Ok(popular) = cache.get_popular(5) {
+        eprintln!("\n{}", "  Usage Statistics".bright_white().bold());
+        eprintln!("  {}", "─".repeat(58).bright_black());
+        eprintln!("  {:<20} {}", "Total Searches:".bright_white(), stats.total_searches.to_string().bright_cyan());
+        eprintln!("  {:<20} {}", "Packages Searched:".bright_white(),
+            format!("{} / {}", stats.packages_with_searches, stats.total_packages).bright_cyan());
+        eprintln!("  {:<20} {}", "Cache Effectiveness:".bright_white(),
+            format!("{:.1}%", effectiveness).bright_cyan());
+
+        if stats.total_searches > 0 {
+            let avg_searches = stats.total_searches as f64 / stats.packages_with_searches.max(1) as f64;
+            eprintln!("  {:<20} {}", "Avg Searches/Package:".bright_white(),
+                format!("{:.1}", avg_searches).bright_cyan());
+        }
+    }
+
+    // === CACHE DETAILS ===
+    if stats.total_packages > 0 {
+        eprintln!("\n{}", "  Cache Details".bright_white().bold());
+        eprintln!("  {}", "─".repeat(58).bright_black());
+        eprintln!("  {:<20} {}", "Avg Description Len:".bright_white(),
+            format!("{:.0} chars", stats.average_description_length).bright_cyan());
+
+        // Show age range if packages have different timestamps
+        if let (Some(oldest), Some(newest)) = (stats.oldest_package, stats.newest_package) {
+            if oldest != newest {
+                let age_range_days = (newest - oldest) / 86400;
+                eprintln!("  {:<20} {}", "Cache Age Range:".bright_white(),
+                    format!("{} days", age_range_days).bright_cyan());
+            }
+        }
+
+        eprintln!("  {:<20} {}", "Location:".bright_white(),
+            cache.get_path().display().to_string().bright_black());
+    }
+
+    // === MOST SEARCHED PACKAGES ===
+    if stats.total_packages > 0 {
+        if let Ok(popular) = cache.get_popular(10) {
             if !popular.is_empty() {
-                eprintln!("\n{}", "  Most Searched Packages:".bright_white());
+                eprintln!("\n{}", "  Most Searched Packages".bright_white().bold());
+                eprintln!("  {}", "─".repeat(58).bright_black());
+
                 for (i, pkg) in popular.iter().enumerate() {
-                    eprintln!("    {}. {} (searched {} times)",
-                        (i + 1).to_string().bright_black(),
+                    let rank = format!("{:>2}.", i + 1).bright_black();
+                    let count_display = format!("({} searches)", pkg.search_count).bright_black();
+                    eprintln!("  {} {:<35} {}",
+                        rank,
                         pkg.name.bright_green(),
-                        pkg.search_count.to_string().bright_cyan()
+                        count_display
                     );
                 }
             }
@@ -1122,16 +1187,50 @@ pub fn cache_stats() -> Result<()> {
 
     eprintln!();
 
+    // === RECOMMENDATIONS ===
     if stats.total_packages == 0 {
         eprintln!("{}", OutputFormatter::format_message(
             MessageType::Info,
-            "Cache is empty. Run 'nsfw search <query>' to build it."
+            "Cache is empty. Run 'nsfw search <query>' to build it automatically."
         ));
-    } else if let Some(age_secs) = age {
-        if age_secs > 2592000 { // 30 days
+        eprintln!("{}", OutputFormatter::format_message(
+            MessageType::Info,
+            "Or run 'nsfw cache rebuild' to build the complete cache (~80,000 packages)."
+        ));
+    } else {
+        match health {
+            CacheHealth::Fresh => {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Success,
+                    "✓ Cache is fresh and up-to-date!"
+                ));
+            }
+            CacheHealth::Good => {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Info,
+                    "Cache is in good condition. No action needed."
+                ));
+            }
+            CacheHealth::Stale => {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Warning,
+                    "Cache is getting old. Consider running 'nsfw update' to refresh packages."
+                ));
+            }
+            CacheHealth::Outdated => {
+                eprintln!("{}", OutputFormatter::format_message(
+                    MessageType::Warning,
+                    "⚠ Cache is outdated! Run 'nsfw cache rebuild' for latest packages."
+                ));
+            }
+            CacheHealth::Empty => {}
+        }
+
+        // Additional recommendations based on effectiveness
+        if stats.total_packages > 100 && effectiveness < 1.0 {
             eprintln!("{}", OutputFormatter::format_message(
-                MessageType::Warning,
-                "Cache is over 30 days old. Consider running 'nsfw update'."
+                MessageType::Info,
+                &format!("Tip: Only {:.1}% of cached packages have been searched. Cache is highly underutilized.", effectiveness)
             ));
         }
     }
