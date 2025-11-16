@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Luminous-Dynamics/nsfw/releases)
-[![Tests](https://img.shields.io/badge/tests-140%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#building)
 
 ## What is NSFW?
