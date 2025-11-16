@@ -165,6 +165,75 @@ impl PackageCache {
         Ok(())
     }
 
+    /// Search with fuzzy matching and relevance scoring
+    pub fn fuzzy_search(&self, query: &str, limit: usize) -> Result<Vec<CachedPackage>> {
+        use fuzzy_matcher::FuzzyMatcher;
+        use fuzzy_matcher::skim::SkimMatcherV2;
+
+        let conn = Connection::open(&self.db_path)
+            .context("Failed to open database")?;
+
+        // Get all packages (or a broader set for fuzzy matching)
+        let mut stmt = conn.prepare(
+            "SELECT name, version, description, attr_path, last_updated, search_count
+             FROM packages"
+        ).context("Failed to prepare query")?;
+
+        let packages = stmt.query_map([], |row| {
+            Ok(CachedPackage {
+                name: row.get(0)?,
+                version: row.get(1)?,
+                description: row.get(2)?,
+                attr_path: row.get(3)?,
+                last_updated: row.get(4)?,
+                search_count: row.get(5)?,
+            })
+        }).context("Failed to execute query")?
+          .collect::<SqlResult<Vec<_>>>()
+          .context("Failed to collect results")?;
+
+        // Use fuzzy matcher for scoring
+        let matcher = SkimMatcherV2::default();
+        let mut scored_packages: Vec<(CachedPackage, i64)> = packages
+            .into_iter()
+            .filter_map(|pkg| {
+                // Score against package name (higher weight)
+                let name_score = matcher.fuzzy_match(&pkg.name, query).map(|s| s * 2);
+
+                // Score against description (lower weight)
+                let desc_score = matcher.fuzzy_match(&pkg.description, query);
+
+                // Combine scores, prefer name matches
+                let total_score = name_score.or(desc_score)?;
+
+                // Boost score slightly for popular packages
+                let popularity_bonus = (pkg.search_count as i64).min(50);
+                let final_score = total_score + popularity_bonus;
+
+                Some((pkg, final_score))
+            })
+            .collect();
+
+        // Sort by score (descending)
+        scored_packages.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // Take top results
+        let results: Vec<CachedPackage> = scored_packages
+            .into_iter()
+            .take(limit)
+            .map(|(pkg, _score)| pkg)
+            .collect();
+
+        debug!("Fuzzy search for '{}': found {} results", query, results.len());
+
+        // Increment search counts for found packages
+        if !results.is_empty() {
+            self.increment_search_counts(&results)?;
+        }
+
+        Ok(results)
+    }
+
     /// Add or update packages in the cache
     pub fn upsert_packages(&self, packages: &[CachedPackage]) -> Result<()> {
         let conn = Connection::open(&self.db_path)

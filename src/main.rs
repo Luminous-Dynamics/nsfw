@@ -39,6 +39,10 @@ enum Commands {
         /// Output format (text, json)
         #[arg(short, long, default_value = "text")]
         format: String,
+
+        /// Use fuzzy matching for search (default: true)
+        #[arg(long, default_value_t = true)]
+        fuzzy: bool,
     },
 
     /// Install a package
@@ -241,8 +245,8 @@ fn main() {
 
     // Execute command
     let result = match cli.command {
-        Commands::Search { query, limit, format } => {
-            cli::commands::search(&query, limit, &format)
+        Commands::Search { query, limit, format, fuzzy } => {
+            cli::commands::search(&query, limit, &format, fuzzy)
         }
         Commands::Install { package, yes, dry_run } => {
             cli::commands::install(&package, yes, dry_run)

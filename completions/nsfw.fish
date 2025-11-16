@@ -33,6 +33,8 @@ complete -c nsfw -f -n '__fish_use_subcommand' -a 'import' -d 'Import packages f
 # search/find command
 complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -s l -l limit -d 'Maximum number of results' -r
 complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -s f -l format -d 'Output format' -a 'text json'
+complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -l fuzzy -d 'Use fuzzy matching (default)'
+complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -l no-fuzzy -d 'Disable fuzzy matching'
 complete -c nsfw -f -n '__fish_seen_subcommand_from search find' -s h -l help -d 'Show help'
 
 # install/add command

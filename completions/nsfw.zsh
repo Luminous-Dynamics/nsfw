@@ -22,6 +22,8 @@ _nsfw() {
                     _arguments \
                         '(-l --limit)'{-l,--limit}'[Maximum number of results]:limit:' \
                         '(-f --format)'{-f,--format}'[Output format]:format:(text json)' \
+                        '--fuzzy[Use fuzzy matching for search (default)]' \
+                        '--no-fuzzy[Disable fuzzy matching, use exact matching]' \
                         '(-h --help)'{-h,--help}'[Show help]' \
                         '1:query:'
                     ;;

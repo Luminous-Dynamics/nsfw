@@ -61,7 +61,7 @@ fn spawn_cache_update_if_needed(cache: PackageCache) {
     });
 }
 
-pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
+pub fn search(query: &str, limit: usize, format: &str, fuzzy: bool) -> Result<()> {
     // Show search header
     eprintln!("{}", OutputFormatter::format_section(&format!("Searching for '{}'", query)));
 
@@ -70,8 +70,12 @@ pub fn search(query: &str, limit: usize, format: &str) -> Result<()> {
     pkg_cache.initialize()?;
 
     if !pkg_cache.is_empty() {
-        log::debug!("Checking package cache for '{}'", query);
-        let cached_packages = pkg_cache.search(query, limit)?;
+        log::debug!("Checking package cache for '{}' (fuzzy: {})", query, fuzzy);
+        let cached_packages = if fuzzy {
+            pkg_cache.fuzzy_search(query, limit)?
+        } else {
+            pkg_cache.search(query, limit)?
+        };
 
         if !cached_packages.is_empty() {
             log::info!("Found {} results in package cache", cached_packages.len());

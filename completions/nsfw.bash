@@ -48,10 +48,10 @@ _nsfw_completions() {
             COMPREPLY=($(compgen -W "$commands $global_opts" -- "$cur"))
             return
             ;;
-        search)
+        search|find)
             case "$cur" in
                 -*)
-                    COMPREPLY=($(compgen -W "--limit --format --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--limit --format --fuzzy --no-fuzzy --help" -- "$cur"))
                     ;;
             esac
             return
