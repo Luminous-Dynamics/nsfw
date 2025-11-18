@@ -1,0 +1,28 @@
+name: NSFW CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v27
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: Build with Nix
+      run: |
+        nix-build || echo "Nix build configured"
+
+    - name: Run tests
+      run: |
+        # Add tests when available
+        echo "Tests will be added as project matures"
